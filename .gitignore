@@ -1,0 +1,47 @@
+# Secrets (never commit Wi-Fi passwords)
+firmware/parktrack360/secrets.h
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# YOLO / training
+runs/
+*.onnx
+*.engine
+*.pt
+!yolo26n.pt
+!yolo11n.pt
+
+# Dataset (too large for git)
+vision/dataset/raw/
+vision/dataset/images/
+vision/dataset/labels/
+
+# Database
+*.db
+*.db-journal
+
+# Logs
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
