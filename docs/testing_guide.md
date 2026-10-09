@@ -234,3 +234,35 @@ The PCF8574 expander chip is designed to **sink current** (pull to Ground). That
 
 - **Goal:** Test smooth opening (0° ➔ 90°) and closing (90° ➔ 0°) of both barrier gate servos.
 - **Status:** **PASSED** (Verified on hardware; defective motor identified for replacement).
+
+---
+
+## 🧪 Test 6: Full Standalone System Test (`parktrack360.ino`) 🚀
+
+Now that every individual hardware component is tested and verified, we run the **complete standalone firmware**! This runs the full system: 8 ultrasonic sensors, 16 LEDs, 16×2 LCD, 2 servo barrier gates, and serial commands.
+
+### 🔌 Extra Library to Install:
+Make sure **WebSockets** by Markus Sattler is installed in Arduino IDE Library Manager (alongside `ESP32Servo`, `LiquidCrystal_I2C`, and `ArduinoJson`).
+
+### 🚀 Uploading the Full Firmware:
+1. Connect ESP32 to laptop via USB.
+2. Open **Arduino IDE**.
+3. Go to **File** ➔ **Open** ➔ select `firmware/parktrack360/parktrack360.ino`.
+4. Click **Upload** (`➔`).
+5. Open **Serial Monitor** at **115200 baud**.
+
+### 🎮 How to Test Using Serial Monitor:
+1. Type `help` ➔ see the complete list of commands.
+2. Type `scan` ➔ verifies all 3 I²C devices (`0x25`, `0x26`, `0x27`).
+3. Type `calibrate` with all 8 parking slots empty:
+   - LCD will show `CALIBRATING...` then `CALIBRATION OK`.
+   - All 8 slot LEDs turn **GREEN**!
+4. **Place a toy car in any slot (e.g., G1):**
+   - That slot's LED switches to **RED** within 0.5s.
+   - LCD updates: `Occ: 1  Free: 7`.
+5. **Remove the toy car:**
+   - LED switches back to **GREEN**.
+   - LCD updates: `Occ: 0  Free: 8`.
+6. Type `gate entry open`:
+   - Entry gate smoothly sweeps open, waits 5s, then closes!
+7. Type `status` anytime to view all real-time distances, baselines, and gate states.
