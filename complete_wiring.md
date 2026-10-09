@@ -222,7 +222,17 @@
 
 ---
 
-## 8. Unconnected / Free Pins Note
+## 8. USB Camera & Host Computer Wiring
+
+### Single Overhead USB Webcam (Entry & Exit Lane Vision)
+* **USB-A Connector** ➔ Laptop / Host PC USB Port (Direct connection, provides 5V power and MJPEG video feed)
+* **Mounting Position** ➔ 25 cm to 35 cm overhead, centered between Entry and Exit lanes
+* **Lens Alignment** ➔ Looking straight down at car roofs (tags 1–8 clearly visible in both lane ROIs)
+* **Note** ➔ Camera does NOT connect to ESP32 (all computer vision runs on host laptop CPU)
+
+---
+
+## 9. Unconnected / Free Pins Note
 
 ### ESP32 Unconnected Pins
 * **GPIO 4** ➔ Free / Unconnected (Gate indicator LEDs removed)
@@ -231,3 +241,4 @@
 * **GPIO 0** ➔ Not broken out on 30-pin board
 * **GPIO 1 (TX0)** ➔ Free / Reserved for USB Serial communication
 * **GPIO 3 (RX0)** ➔ Free / Reserved for USB Serial communication
+
