@@ -94,28 +94,99 @@ Scan complete. Found 3 device(s).
 
 ---
 
-## 🧪 Test 3: Test 8 Slot Sensors (`t02_hcsr04`)
+## 🧪 Test 3: Test 8 Ultrasonic Sensors (`t02_hcsr04`)
 
-**Goal:** Make sure all 8 ultrasonic sensors measure distances accurately.
+**Goal:** Verify that all 8 HC-SR04 ultrasonic sensors accurately detect distances in centimeters.
 
-### Wiring Needed:
-- **External 5V supply** powered ON.
-- Common ground connected (ESP32 GND ➔ Breadboard GND ➔ External 5V GND).
-- TRIG & ECHO connected per pin map:
-  - **G1:** TRIG 13, ECHO 34
-  - **G2:** TRIG 14, ECHO 35
-  - **G3:** TRIG 27, ECHO 36
-  - **G4:** TRIG 26, ECHO 39
-  - **F1:** TRIG 25, ECHO 18
-  - **F2:** TRIG 33, ECHO 5
-  - **F3:** TRIG 32, ECHO 17
-  - **F4:** TRIG 19, ECHO 16
-- **Remember:** Every ECHO wire MUST use the **1kΩ / 2kΩ voltage divider** before going to the ESP32 pin!
+---
 
-### Steps:
-1. Open `firmware/tests/t02_hcsr04/t02_hcsr04.ino`.
-2. Upload and view Serial Monitor (115200 baud).
-3. Wave your hand ~5 cm over each sensor to verify distance drops.
+### 1. Understanding the HC-SR04 Sensor Pins
+
+Each HC-SR04 sensor has 4 pins on the front:
+- **VCC:** Power (5V)
+- **GND:** Ground (0V)
+- **TRIG:** Trigger input (ESP32 tells sensor to shoot ultrasound pulse)
+- **ECHO:** Echo output (Sensor tells ESP32 how long ultrasound took to bounce back)
+
+---
+
+### 2. ⚠️ CRITICAL: The 1kΩ / 2kΩ Voltage Divider on Every ECHO Wire
+
+> **Why do we need this?**  
+> The HC-SR04 sensor sends out a 5V signal on its ECHO pin. However, ESP32 GPIO pins are rated for **3.3V max**! Connecting a raw 5V ECHO pin directly to ESP32 can damage the pin.  
+> The 2 resistors scale down 5V to a safe **3.33V**.
+
+#### How to build 1 Voltage Divider on your breadboard (repeat for each sensor):
+
+```text
+HC-SR04 ECHO Pin ────[ 1kΩ Resistor ]──── • ────[ 2kΩ Resistor ]──── Ground Rail
+                                          │
+                                   Connect to ESP32 GPIO
+```
+
+- **Resistor 1 (1 kΩ / 1000 ohms):** Connect one side to HC-SR04 ECHO, connect the other side to a middle breadboard row.
+- **Resistor 2 (2 kΩ / 2000 ohms):** Connect one side to that same middle breadboard row, connect the other side to Ground Rail.
+- **Jumper Wire to ESP32:** Plug into that **same middle breadboard row** (the junction between the two resistors) and connect to the ESP32 ECHO pin!
+
+*(Note: TRIG wire connects directly from ESP32 GPIO to the sensor's TRIG pin with NO resistors).*
+
+---
+
+### 3. Pin-by-Pin Wiring Table for All 8 Sensors
+
+#### Power & Ground (All 8 sensors share this):
+- **All VCC pins** ➔ Connect to **External 5V Power Rail** *(not ESP32 3.3V!)*
+- **All GND pins** ➔ Connect to **Common Ground Rail**
+
+#### Signal Wires:
+
+| Slot | Floor | TRIG Pin ➔ ESP32 GPIO | ECHO Pin ➔ Divider Junction ➔ ESP32 GPIO | Notes |
+|:---:|:---:|:---:|:---:|:---|
+| **G1** | Ground | **GPIO 13** | **GPIO 34** | |
+| **G2** | Ground | **GPIO 14** | **GPIO 35** | |
+| **G3** | Ground | **GPIO 27** | **GPIO 36** | On board silkscreen labeled **VP** |
+| **G4** | Ground | **GPIO 26** | **GPIO 39** | On board silkscreen labeled **VN** |
+| **F1** | 1st Floor | **GPIO 25** | **GPIO 18** | |
+| **F2** | 1st Floor | **GPIO 33** | **GPIO 5** | |
+| **F3** | 1st Floor | **GPIO 32** | **GPIO 17** | On board silkscreen labeled **TX2** |
+| **F4** | 1st Floor | **GPIO 19** | **GPIO 16** | On board silkscreen labeled **RX2** |
+
+---
+
+### 4. Step-by-Step Instructions to Run Test 3
+
+1. **Power up your External 5V Power Adapter** (make sure ESP32 and 5V supply share the same Ground wire).
+2. Open **Arduino IDE**.
+3. Go to **File** ➔ **Open** ➔ navigate to `firmware/tests/t02_hcsr04/t02_hcsr04.ino`.
+4. Click **Upload** (`➔`).
+5. Open **Serial Monitor** (115200 baud).
+6. Press **EN / RST** button on ESP32 once.
+
+---
+
+### 5. Expected Output & Physical Check
+
+You will see live distance readings updating every ~500ms:
+
+```text
+=== ParkTrack 360 — HC-SR04 Sensor Test ===
+
+G1:  12.3 cm | G2:  12.1 cm | G3:  12.5 cm | G4:  12.2 cm
+F1:  12.4 cm | F2:  12.3 cm | F3:  12.6 cm | F4:  12.1 cm
+---
+```
+
+#### 🖐️ Physical Check:
+- Wave your hand ~5 cm above **Sensor G1** ➔ Watch `G1` reading drop to `~5.0 cm` on screen!
+- Repeat for sensors G2, G3, G4, F1, F2, F3, F4 one by one.
+
+---
+
+### 🔍 Troubleshooting (`timeout`):
+- **If a sensor reads `timeout`:**  
+  1. Check if external 5V power is plugged in.
+  2. Check if the 1kΩ/2kΩ resistor junction wire is plugged into the correct ESP32 ECHO pin.
+  3. Verify TRIG wire is connected directly to its assigned GPIO.
 
 ---
 
