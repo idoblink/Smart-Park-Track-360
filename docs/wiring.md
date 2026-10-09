@@ -27,7 +27,7 @@ To prevent address conflicts on the shared I²C bus (SDA = GPIO21, SCL = GPIO22)
 ## Complete Wiring Guide (16x2 LCD Version)
 
 ### 1. Common Ground & Power Rails
-- **Common Ground (GND Bus):** ESP32 GND, External 5V GND, 8x HC-SR04 GND, 3x PCF8574 GND, 2x Servo GND, LED returns.
+- **Common Ground (GND Bus):** ESP32 GND, External 5V GND, 8x HC-SR04 GND, 3x PCF8574 GND, 2x Servo GND.
 - **ESP32 3.3V Rail:** Powers the 16x2 LCD backpack VCC and the 2x Slot LED PCF8574 module VCCs.
 - **External 5V 2A Rail:** Powers 8x HC-SR04 VCC and 2x Servo VCC.
 
@@ -68,12 +68,10 @@ Wiring: **3.3V ➔ 220Ω ➔ LED Anode (+) | LED Cathode (-) ➔ PCF8574 Pin**
   - F3: Green = P4, Red = P5
   - F4: Green = P6, Red = P7
 
-### 5. Gate Servos & Gate Indicator LEDs
+### 5. Gate Servos
 - **Entry Servo Signal:** ESP32 **GPIO23** (VCC ➔ External 5V, GND ➔ Common GND)
 - **Exit Servo Signal:** ESP32 **GPIO15** (VCC ➔ External 5V, GND ➔ Common GND)
-- **Capacitor:** 470µF–1000µF across External 5V rail near servos
-- **Entry Gate LED Pair:** ESP32 **GPIO4** (Complementary Pair)
-- **Exit Gate LED Pair:** ESP32 **GPIO2** (Complementary Pair)
+- **Gate Indicator LEDs:** **Removed per owner request** (GPIO4 and GPIO2 are free/unconnected)
 
 ---
 
@@ -128,8 +126,3 @@ G1:  2.3 cm | G2:  8.4 cm | G3:  8.4 cm | G4:  6.2 cm
 
 - Entry Servo Sweep (GPIO23): ☐ OK
 - Exit Servo Sweep (GPIO15): ☐ OK
-
-## Gate LED Pair Test Results (from t05_gateleds)
-
-- Entry Pair (GPIO4): ☐ OK
-- Exit Pair (GPIO2): ☐ OK

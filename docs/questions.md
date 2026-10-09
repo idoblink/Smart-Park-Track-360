@@ -15,6 +15,9 @@ Items that need your answer before proceeding. The spec says to write concerns h
 - **Ground Floor Slot LEDs:** Address `0x26` (A0 pad bridged)
 - **First Floor Slot LEDs:** Address `0x25` (A1 pad bridged)
 
+### Gate Indicator LEDs
+- **Removed completely per owner request.** GPIO4 and GPIO2 remain free/unconnected.
+
 ### Q3. Servo angles
 The defaults are: closed = 0°, open = 90°. After running `t04_servo`:
 - Do these angles work for your physical barrier gate design?
