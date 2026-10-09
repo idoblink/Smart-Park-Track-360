@@ -84,59 +84,152 @@ Your **3 PCF8574 modules** share the same I²C bus (SDA=GPIO21, SCL=GPIO22):
 
 ---
 
-## 🧪 Test 4: Test 16 Slot LEDs (`t03_leds`)
+## 🧪 Test 4: Test 16 Slot LEDs (`t03_leds`) — Detailed Step-by-Step Wiring Guide
 
-**Goal:** Test all 16 slot LEDs (8 Green + 8 Red) using both PCF8574 expanders. No external 5V power adapter needed—runs on ESP32 3.3V power over USB!
+**Goal:** Test all 16 slot LEDs (8 Green + 8 Red) using both PCF8574 expanders. No external 5V power adapter needed—runs entirely on ESP32 3.3V USB power!
 
 ---
 
 ### 💡 Understanding "Active-LOW" LED Wiring
-- **Anode (long leg, +)** connects to **ESP32 3.3V**.
-- **Cathode (short leg, -)** connects through a **220Ω resistor** to the **PCF8574 pin (P0..P7)**.
-- Code sends **0 (LOW)** ➔ LED turns **ON**. Code sends **1 (HIGH)** ➔ LED turns **OFF**.
+
+The PCF8574 expander chip is designed to **sink current** (pull to Ground). That means:
+- The LED's **Anode (long leg, +)** connects to **ESP32 3.3V Rail**.
+- The LED's **Cathode (short leg, -)** connects through a **220Ω resistor** (Red-Red-Brown-Gold) to the **PCF8574 pin (P0..P7)**.
+- When the code sends a **0 (LOW)** to a pin, current flows into the PCF8574 pin and the LED turns **ON**!
+- When the code sends a **1 (HIGH)** to a pin, the LED turns **OFF**.
 
 ---
 
 ### 🔌 Part 1: Power & I²C Connections for the 2 LED Expanders
 
 1. **Ground Floor Expander (PCF8574 #2, Address `0x26` — A0 bridged):**
-   - **VCC** ➔ ESP32 **3.3V Rail** | **GND** ➔ ESP32 **GND Rail**
-   - **SDA** ➔ ESP32 **GPIO 21** | **SCL** ➔ ESP32 **GPIO 22**
+   - Connect **VCC** pin ➔ ESP32 **3.3V Rail**.
+   - Connect **GND** pin ➔ ESP32 **GND Rail**.
+   - Connect **SDA** pin ➔ ESP32 **GPIO 21**.
+   - Connect **SCL** pin ➔ ESP32 **GPIO 22**.
 
 2. **First Floor Expander (PCF8574 #3, Address `0x25` — A1 bridged):**
-   - **VCC** ➔ ESP32 **3.3V Rail** | **GND** ➔ ESP32 **GND Rail**
-   - **SDA** ➔ ESP32 **GPIO 21** | **SCL** ➔ ESP32 **GPIO 22**
+   - Connect **VCC** pin ➔ ESP32 **3.3V Rail**.
+   - Connect **GND** pin ➔ ESP32 **GND Rail**.
+   - Connect **SDA** pin ➔ ESP32 **GPIO 21**.
+   - Connect **SCL** pin ➔ ESP32 **GPIO 22**.
 
 ---
 
-### 📍 Part 2: Detailed LED Connections (LED by LED)
-
-#### 🟢 Ground Floor Slot LEDs (PCF8574 #2 at `0x26`)
-- G1: Green ➔ P0, Red ➔ P1
-- G2: Green ➔ P2, Red ➔ P3
-- G3: Green ➔ P4, Red ➔ P5
-- G4: Green ➔ P6, Red ➔ P7
-
-#### 🔵 First Floor Slot LEDs (PCF8574 #3 at `0x25`)
-- F1: Green ➔ P0, Red ➔ P1
-- F2: Green ➔ P2, Red ➔ P3
-- F3: Green ➔ P4, Red ➔ P5
-- F4: Green ➔ P6, Red ➔ P7
+### 📍 Part 2: Step-by-Step Connection Instructions for All 16 LEDs
 
 ---
 
-## 🧪 Test 5: Test Barrier Gate Servos (`t04_servo`)
+#### 🟢 Ground Floor Slot LEDs (Connected to PCF8574 #2 at `0x26`)
 
-**Goal:** Test smooth opening (0° ➔ 90°) and closing (90° ➔ 0°) of both barrier gate servos.
+1. **Slot G1 Green LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P0** on Expander `0x26`.
+
+2. **Slot G1 Red LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P1** on Expander `0x26`.
+
+3. **Slot G2 Green LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P2** on Expander `0x26`.
+
+4. **Slot G2 Red LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P3** on Expander `0x26`.
+
+5. **Slot G3 Green LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P4** on Expander `0x26`.
+
+6. **Slot G3 Red LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P5** on Expander `0x26`.
+
+7. **Slot G4 Green LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P6** on Expander `0x26`.
+
+8. **Slot G4 Red LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P7** on Expander `0x26`.
 
 ---
 
-### 🔌 Part 1: Power & Ground Setup
-- **Servo VCC (Red Wire):** Connect both servo red wires to your **External 5V Power Rail**.
-- **Servo GND (Black or Brown Wire):** Connect both servo black/brown wires to the **Common Ground Rail**.
+#### 🔵 First Floor Slot LEDs (Connected to PCF8574 #3 at `0x25`)
+
+1. **Slot F1 Green LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P0** on Expander `0x25`.
+
+2. **Slot F1 Red LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P1** on Expander `0x25`.
+
+3. **Slot F2 Green LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P2** on Expander `0x25`.
+
+4. **Slot F2 Red LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P3** on Expander `0x25`.
+
+5. **Slot F3 Green LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P4** on Expander `0x25`.
+
+6. **Slot F3 Red LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P5** on Expander `0x25`.
+
+7. **Slot F4 Green LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P6** on Expander `0x25`.
+
+8. **Slot F4 Red LED:**
+   - Plug **Anode (long leg, +)** into the **ESP32 3.3V Rail**.
+   - Plug **Cathode (short leg, -)** into a 220Ω resistor leg.
+   - Connect the other leg of that 220Ω resistor directly to **Pin P7** on Expander `0x25`.
 
 ---
 
-### 📍 Part 2: Servo Signal Connections
-1. **Entry Gate Servo Signal (Yellow/Orange Wire):** Connect to **ESP32 GPIO 23**.
-2. **Exit Gate Servo Signal (Yellow/Orange Wire):** Connect to **ESP32 GPIO 15**.
+### 🚀 Step-by-Step Instructions to Run Test 4
+
+1. Connect ESP32 to laptop via USB.
+2. Open **Arduino IDE**.
+3. Go to **File** ➔ **Open** ➔ navigate to `firmware/tests/t03_leds/t03_leds.ino`.
+4. Click **Upload** (`➔`).
+5. Open **Serial Monitor** (115200 baud).
+6. Press **EN / RST** button on ESP32 once.
+
+---
+
+### 👁️ What to Watch During Test 4:
+
+1. **Pattern 0xAA:** All **8 Green LEDs turn ON**, all 8 Red LEDs turn OFF (shows all slots vacant).
+2. **Pattern 0x55:** All **8 Red LEDs turn ON**, all 8 Green LEDs turn OFF (shows all slots occupied).
+3. **Pattern 0x00:** ALL **16 LEDs turn ON** together.
+4. **Pattern 0xFF:** ALL **16 LEDs turn OFF** together.
+5. **Individual Walk:** Each of the 16 LEDs turns ON one by one for 0.5 seconds while printing its name in the Serial Monitor!
+
+---
+
+## 🧪 Test 5: Test Barrier Gate Servos (`t04_servo`) — PASSED! ✅
+
+- **Goal:** Test smooth opening (0° ➔ 90°) and closing (90° ➔ 0°) of both barrier gate servos.
+- **Status:** **PASSED** (Verified on hardware; defective motor identified for replacement).
