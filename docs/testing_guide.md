@@ -77,100 +77,103 @@ Your **3 PCF8574 modules** share the same I²C bus (SDA=GPIO21, SCL=GPIO22):
 
 ---
 
-## 🧪 Test 3: Test 8 Ultrasonic Sensors (`t02_hcsr04`)
+## 🧪 Test 3: Test 8 Ultrasonic Sensors (`t02_hcsr04`) — Exact Breadboard Row Wiring Guide
 
-**Goal:** Verify that all 8 HC-SR04 ultrasonic sensors accurately detect distances in centimeters.
-
----
-
-### ⚡ Part 1: Setting Up the Breadboard & External 5V Power Source
-
-Before connecting any sensors, set up your breadboard power strips properly:
-
-1. **Identify the Power Rails on your Breadboard:**
-   - The strip with the **Red line (+)** will be your **5V Power Rail**.
-   - The strip with the **Blue or Black line (-)** will be your **Common Ground Rail**.
-
-2. **Connect the External 5V Power Adapter:**
-   - Take the **Positive (+5V / Red wire)** coming from your External 5V adapter and plug it into the **Red (+) Rail** on your breadboard.
-   - Take the **Negative (GND / Black wire)** coming from your External 5V adapter and plug it into the **Blue (-) Rail** on your breadboard.
-
-3. **Connect the Shared Ground Wire:**
-   - Plug a jumper wire from the **GND pin** of your ESP32 board directly into the **Blue (-) Rail** on your breadboard.
-
-4. **Keep 3.3V and 5V Separate:**
-   - Do **NOT** connect the ESP32 `3.3V` pin to the external 5V Red rail!
+**Goal:** Connect all 8 HC-SR04 ultrasonic sensors using assigned breadboard rows for exact resistor junctions.
 
 ---
 
-### 🔌 Part 2: How to Build the Voltage Divider for Each Sensor
-
-Because the sensors output a 5V signal on their ECHO pin and the ESP32 can only take 3.3V, you must build a small "Voltage Divider" on the breadboard for each sensor using two resistors: **1kΩ** (1000 ohms) and **2kΩ** (2000 ohms).
-
-Here is how to build one divider on the breadboard:
-
-1. Pick an unused row on your breadboard (for example, **Row 10**).
-2. Take a **1kΩ resistor**:
-   - Plug one leg into the wire coming from the Sensor's **ECHO pin**.
-   - Plug the other leg into **Row 10**.
-3. Take a **2kΩ resistor**:
-   - Plug one leg into **Row 10** (in the exact same row as the 1kΩ resistor leg).
-   - Plug the other leg into the **Blue (-) Common Ground Rail**.
-4. Take a jumper wire to connect to the ESP32:
-   - Plug one end into **Row 10** (where the two resistors meet).
-   - Plug the other end into the designated **ESP32 GPIO pin** for that sensor's ECHO.
+### ⚡ Power Rails Assignment (Breadboard Side Strips)
+- **Red (+) Rail:** External 5V Power Supply Positive (+). Powers all 8 sensors VCC.
+- **Blue (-) Rail:** Common Ground (GND). Connected to External 5V Adapter (-), all 8 sensors GND, AND ESP32 GND pin!
 
 ---
 
-### 📍 Part 3: Step-by-Step Sensor Connections (Sensor by Sensor)
+### 📍 Sensor 1: Ground Floor Slot 1 (G1)
+1. **VCC:** Wire from Sensor G1 VCC ➔ **Red (+) 5V Rail**
+2. **GND:** Wire from Sensor G1 GND ➔ **Blue (-) Ground Rail**
+3. **TRIG:** Wire from Sensor G1 TRIG ➔ **ESP32 GPIO 13**
+4. **Voltage Divider (Row 1):**
+   - Plug 1kΩ resistor leg 1 into Sensor G1 ECHO wire, leg 2 into **Breadboard Row 1**.
+   - Plug 2kΩ resistor leg 1 into **Breadboard Row 1**, leg 2 into **Blue (-) Ground Rail**.
+   - Plug jumper wire from **Breadboard Row 1** ➔ **ESP32 GPIO 34**.
 
-#### 🟢 Sensor 1: Ground Floor Slot 1 (G1)
-1. **VCC:** Connect jumper wire from **G1 Sensor VCC pin** to **Red (+) External 5V Rail**.
-2. **GND:** Connect jumper wire from **G1 Sensor GND pin** to **Blue (-) Common Ground Rail**.
-3. **TRIG:** Connect jumper wire directly from **G1 Sensor TRIG pin** to **ESP32 GPIO 13**.
-4. **ECHO:** Connect **G1 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 34**.
+---
 
-#### 🟢 Sensor 2: Ground Floor Slot 2 (G2)
-1. **VCC:** Connect jumper wire from **G2 Sensor VCC pin** to **Red (+) External 5V Rail**.
-2. **GND:** Connect jumper wire from **G2 Sensor GND pin** to **Blue (-) Common Ground Rail**.
-3. **TRIG:** Connect jumper wire directly from **G2 Sensor TRIG pin** to **ESP32 GPIO 14**.
-4. **ECHO:** Connect **G2 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 35**.
+### 📍 Sensor 2: Ground Floor Slot 2 (G2)
+1. **VCC:** Wire from Sensor G2 VCC ➔ **Red (+) 5V Rail**
+2. **GND:** Wire from Sensor G2 GND ➔ **Blue (-) Ground Rail**
+3. **TRIG:** Wire from Sensor G2 TRIG ➔ **ESP32 GPIO 14**
+4. **Voltage Divider (Row 3):**
+   - Plug 1kΩ resistor leg 1 into Sensor G2 ECHO wire, leg 2 into **Breadboard Row 3**.
+   - Plug 2kΩ resistor leg 1 into **Breadboard Row 3**, leg 2 into **Blue (-) Ground Rail**.
+   - Plug jumper wire from **Breadboard Row 3** ➔ **ESP32 GPIO 35**.
 
-#### 🟢 Sensor 3: Ground Floor Slot 3 (G3)
-1. **VCC:** Connect jumper wire from **G3 Sensor VCC pin** to **Red (+) External 5V Rail**.
-2. **GND:** Connect jumper wire from **G3 Sensor GND pin** to **Blue (-) Common Ground Rail**.
-3. **TRIG:** Connect jumper wire directly from **G3 Sensor TRIG pin** to **ESP32 GPIO 27**.
-4. **ECHO:** Connect **G3 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 36** *(labeled **VP**)*.
+---
 
-#### 🟢 Sensor 4: Ground Floor Slot 4 (G4)
-1. **VCC:** Connect jumper wire from **G4 Sensor VCC pin** to **Red (+) External 5V Rail**.
-2. **GND:** Connect jumper wire from **G4 Sensor GND pin** to **Blue (-) Common Ground Rail**.
-3. **TRIG:** Connect jumper wire directly from **G4 Sensor TRIG pin** to **ESP32 GPIO 26**.
-4. **ECHO:** Connect **G4 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 39** *(labeled **VN**)*.
+### 📍 Sensor 3: Ground Floor Slot 3 (G3)
+1. **VCC:** Wire from Sensor G3 VCC ➔ **Red (+) 5V Rail**
+2. **GND:** Wire from Sensor G3 GND ➔ **Blue (-) Ground Rail**
+3. **TRIG:** Wire from Sensor G3 TRIG ➔ **ESP32 GPIO 27**
+4. **Voltage Divider (Row 5):**
+   - Plug 1kΩ resistor leg 1 into Sensor G3 ECHO wire, leg 2 into **Breadboard Row 5**.
+   - Plug 2kΩ resistor leg 1 into **Breadboard Row 5**, leg 2 into **Blue (-) Ground Rail**.
+   - Plug jumper wire from **Breadboard Row 5** ➔ **ESP32 GPIO 36** *(silkscreen **VP**)*.
 
-#### 🔵 Sensor 5: First Floor Slot 1 (F1)
-1. **VCC:** Connect jumper wire from **F1 Sensor VCC pin** to **Red (+) External 5V Rail**.
-2. **GND:** Connect jumper wire from **F1 Sensor GND pin** to **Blue (-) Common Ground Rail**.
-3. **TRIG:** Connect jumper wire directly from **F1 Sensor TRIG pin** to **ESP32 GPIO 25**.
-4. **ECHO:** Connect **F1 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 18**.
+---
 
-#### 🔵 Sensor 6: First Floor Slot 2 (F2)
-1. **VCC:** Connect jumper wire from **F2 Sensor VCC pin** to **Red (+) External 5V Rail**.
-2. **GND:** Connect jumper wire from **F2 Sensor GND pin** to **Blue (-) Common Ground Rail**.
-3. **TRIG:** Connect jumper wire directly from **F2 Sensor TRIG pin** to **ESP32 GPIO 33**.
-4. **ECHO:** Connect **F2 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 5**.
+### 📍 Sensor 4: Ground Floor Slot 4 (G4)
+1. **VCC:** Wire from Sensor G4 VCC ➔ **Red (+) 5V Rail**
+2. **GND:** Wire from Sensor G4 GND ➔ **Blue (-) Ground Rail**
+3. **TRIG:** Wire from Sensor G4 TRIG ➔ **ESP32 GPIO 26**
+4. **Voltage Divider (Row 7):**
+   - Plug 1kΩ resistor leg 1 into Sensor G4 ECHO wire, leg 2 into **Breadboard Row 7**.
+   - Plug 2kΩ resistor leg 1 into **Breadboard Row 7**, leg 2 into **Blue (-) Ground Rail**.
+   - Plug jumper wire from **Breadboard Row 7** ➔ **ESP32 GPIO 39** *(silkscreen **VN**)*.
 
-#### 🔵 Sensor 7: First Floor Slot 3 (F3)
-1. **VCC:** Connect jumper wire from **F3 Sensor VCC pin** to **Red (+) External 5V Rail**.
-2. **GND:** Connect jumper wire from **F3 Sensor GND pin** to **Blue (-) Common Ground Rail**.
-3. **TRIG:** Connect jumper wire directly from **F3 Sensor TRIG pin** to **ESP32 GPIO 32**.
-4. **ECHO:** Connect **F3 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 17** *(labeled **TX2**)*.
+---
 
-#### 🔵 Sensor 8: First Floor Slot 4 (F4)
-1. **VCC:** Connect jumper wire from **F4 Sensor VCC pin** to **Red (+) External 5V Rail**.
-2. **GND:** Connect jumper wire from **F4 Sensor GND pin** to **Blue (-) Common Ground Rail**.
-3. **TRIG:** Connect jumper wire directly from **F4 Sensor TRIG pin** to **ESP32 GPIO 19**.
-4. **ECHO:** Connect **F4 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 16** *(labeled **RX2**)*.
+### 📍 Sensor 5: First Floor Slot 1 (F1)
+1. **VCC:** Wire from Sensor F1 VCC ➔ **Red (+) 5V Rail**
+2. **GND:** Wire from Sensor F1 GND ➔ **Blue (-) Ground Rail**
+3. **TRIG:** Wire from Sensor F1 TRIG ➔ **ESP32 GPIO 25**
+4. **Voltage Divider (Row 9):**
+   - Plug 1kΩ resistor leg 1 into Sensor F1 ECHO wire, leg 2 into **Breadboard Row 9**.
+   - Plug 2kΩ resistor leg 1 into **Breadboard Row 9**, leg 2 into **Blue (-) Ground Rail**.
+   - Plug jumper wire from **Breadboard Row 9** ➔ **ESP32 GPIO 18**.
+
+---
+
+### 📍 Sensor 6: First Floor Slot 2 (F2)
+1. **VCC:** Wire from Sensor F2 VCC ➔ **Red (+) 5V Rail**
+2. **GND:** Wire from Sensor F2 GND ➔ **Blue (-) Ground Rail**
+3. **TRIG:** Wire from Sensor F2 TRIG ➔ **ESP32 GPIO 33**
+4. **Voltage Divider (Row 11):**
+   - Plug 1kΩ resistor leg 1 into Sensor F2 ECHO wire, leg 2 into **Breadboard Row 11**.
+   - Plug 2kΩ resistor leg 1 into **Breadboard Row 11**, leg 2 into **Blue (-) Ground Rail**.
+   - Plug jumper wire from **Breadboard Row 11** ➔ **ESP32 GPIO 5**.
+
+---
+
+### 📍 Sensor 7: First Floor Slot 3 (F3)
+1. **VCC:** Wire from Sensor F3 VCC ➔ **Red (+) 5V Rail**
+2. **GND:** Wire from Sensor F3 GND ➔ **Blue (-) Ground Rail**
+3. **TRIG:** Wire from Sensor F3 TRIG ➔ **ESP32 GPIO 32**
+4. **Voltage Divider (Row 13):**
+   - Plug 1kΩ resistor leg 1 into Sensor F3 ECHO wire, leg 2 into **Breadboard Row 13**.
+   - Plug 2kΩ resistor leg 1 into **Breadboard Row 13**, leg 2 into **Blue (-) Ground Rail**.
+   - Plug jumper wire from **Breadboard Row 13** ➔ **ESP32 GPIO 17** *(silkscreen **TX2**)*.
+
+---
+
+### 📍 Sensor 8: First Floor Slot 4 (F4)
+1. **VCC:** Wire from Sensor F4 VCC ➔ **Red (+) 5V Rail**
+2. **GND:** Wire from Sensor F4 GND ➔ **Blue (-) Ground Rail**
+3. **TRIG:** Wire from Sensor F4 TRIG ➔ **ESP32 GPIO 19**
+4. **Voltage Divider (Row 15):**
+   - Plug 1kΩ resistor leg 1 into Sensor F4 ECHO wire, leg 2 into **Breadboard Row 15**.
+   - Plug 2kΩ resistor leg 1 into **Breadboard Row 15**, leg 2 into **Blue (-) Ground Rail**.
+   - Plug jumper wire from **Breadboard Row 15** ➔ **ESP32 GPIO 16** *(silkscreen **RX2**)*.
 
 ---
 
