@@ -6,7 +6,7 @@ Welcome! This guide explains **step-by-step** how to test every hardware part of
 
 ## 🛠️ Step 0: Software Setup (Do This Once)
 
-Before uploading any test code, you need to prepare your computer.
+Before uploading any test code, prepare your computer:
 
 ### 1. Download and Install Arduino IDE
 1. Download **Arduino IDE 2.x** from the official website: [https://www.arduino.cc/en/software](https://www.arduino.cc/en/software)
@@ -50,59 +50,47 @@ Whenever you test a sketch, follow these exact steps:
 
 ---
 
-## 🛠️ Address Setup for 3x PCF8574 Modules
+## 🛠️ Address Setup for 3x PCF8574 Modules (Confirmed & Tested)
 
-You have **3 PCF8574 modules** sharing the same I²C bus. You MUST set different addresses so they don't collide:
+Your **3 PCF8574 modules** share the same I²C bus (SDA=GPIO21, SCL=GPIO22):
 
 1. **PCF8574 #1 (16x2 LCD Backpack):**
    - Leave `A0 A1 A2` un-bridged (default). Address = **`0x27`**.
 2. **PCF8574 #2 (Ground Floor Slot LEDs):**
-   - Make a small solder blob across the **`A0`** pad. Address = **`0x26`**.
+   - Solder blob across **`A0`** pads. Address = **`0x26`**.
 3. **PCF8574 #3 (First Floor Slot LEDs):**
-   - Make a small solder blob across the **`A1`** pad. Address = **`0x25`**.
+   - Solder blob across **`A1`** pads. Address = **`0x25`**.
 
 ---
 
 ## 🧪 Test 1: Check ESP32 Module Type (`t06_psram`) — PASSED! ✅
 
-**Goal:** Confirm ESP32 is WROOM module (0 bytes PSRAM).  
-**Status:** **PASSED** (PSRAM Size: 0 bytes, WROOM module OK).
+- **Goal:** Confirm ESP32 is WROOM module (0 bytes PSRAM).  
+- **Status:** **PASSED** (PSRAM Size: 0 bytes, WROOM module OK — GPIO16/17 available for F3 & F4 sensors).
 
 ---
 
-## 🧪 Test 2: Scan I²C Devices (`t01_i2c_scan`)
+## 🧪 Test 2: Scan I²C Devices (`t01_i2c_scan`) — PASSED! ✅
 
-**Goal:** Detect all 3 I²C modules on the shared bus.
+- **Goal:** Detect all 3 I²C modules on the shared bus.
+- **Status:** **PASSED** (Found all 3 devices cleanly: `0x25`, `0x26`, `0x27`).
 
-### Wiring Needed:
-- **16x2 LCD VCC** ➔ ESP32 **3.3V**
-- **16x2 LCD GND** ➔ Ground Bus
-- **16x2 LCD SDA** ➔ ESP32 **GPIO21**
-- **16x2 LCD SCL** ➔ ESP32 **GPIO22**
-- **PCF8574 #2 & #3 VCC** ➔ ESP32 **3.3V**
-- **PCF8574 #2 & #3 GND** ➔ Ground Bus
-- **PCF8574 #2 & #3 SDA** ➔ ESP32 **GPIO21**
-- **PCF8574 #2 & #3 SCL** ➔ ESP32 **GPIO22**
-
-### Steps:
-1. Open `firmware/tests/t01_i2c_scan/t01_i2c_scan.ino`.
-2. Upload the code and open Serial Monitor (115200 baud).
-3. Press **EN / RST** button on ESP32 once.
-
-### Expected Output:
+### Actual Verified Output:
 ```text
 === ParkTrack 360 — I2C Scanner (16x2 LCD Version) ===
 
 Scanning I2C bus (SDA=21, SCL=22) ...
 
-  Found device at 0x25  <-- PCF8574 (First Floor LEDs)
-  Found device at 0x26  <-- PCF8574 (Ground Floor LEDs)
-  Found device at 0x27  <-- PCF8574 (16x2 LCD Backpack)
+  Found device at 0x25  <-- PCF8574 (A1 bridged / First Floor LEDs)
+  Found device at 0x26  <-- PCF8574 (A0 bridged / Ground Floor LEDs)
+  Found device at 0x27  <-- PCF8574 (Default address / 16x2 LCD Backpack)
 
 Scan complete. Found 3 device(s).
 
 === I2C scan complete ===
 ```
+
+> 💡 **Troubleshooting Tip:** If scanner ever prints 126 devices (addresses 0x01..0x7E), check the **GND wire** on your breadboard—missing GND pulls SDA low!
 
 ---
 
@@ -112,7 +100,7 @@ Scan complete. Found 3 device(s).
 
 ### Wiring Needed:
 - **External 5V supply** powered ON.
-- Common ground connected.
+- Common ground connected (ESP32 GND ➔ Breadboard GND ➔ External 5V GND).
 - TRIG & ECHO connected per pin map:
   - **G1:** TRIG 13, ECHO 34
   - **G2:** TRIG 14, ECHO 35
@@ -127,6 +115,7 @@ Scan complete. Found 3 device(s).
 ### Steps:
 1. Open `firmware/tests/t02_hcsr04/t02_hcsr04.ino`.
 2. Upload and view Serial Monitor (115200 baud).
+3. Wave your hand ~5 cm over each sensor to verify distance drops.
 
 ---
 
