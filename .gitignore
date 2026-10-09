@@ -18,7 +18,7 @@ runs/
 !yolo11n.pt
 
 # Dataset (too large for git)
-vision/dataset/raw/
+vision/dataset/raw/ 
 vision/dataset/images/
 vision/dataset/labels/
 

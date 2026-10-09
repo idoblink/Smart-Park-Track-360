@@ -77,6 +77,155 @@ Your **3 PCF8574 modules** share the same I²C bus (SDA=GPIO21, SCL=GPIO22):
 
 ---
 
+## 🧪 Test 3: Test 8 Ultrasonic Sensors (`t02_hcsr04`)
+
+**Goal:** Verify that all 8 HC-SR04 ultrasonic sensors accurately detect distances in centimeters.
+
+---
+
+### ⚡ Part 1: Setting Up the Breadboard & External 5V Power Source
+
+Before connecting any sensors, set up your breadboard power strips properly:
+
+1. **Identify the Power Rails on your Breadboard:**
+   - The strip with the **Red line (+)** will be your **5V Power Rail**.
+   - The strip with the **Blue or Black line (-)** will be your **Common Ground Rail**.
+
+2. **Connect the External 5V Power Adapter:**
+   - Take the **Positive (+5V / Red wire)** coming from your External 5V adapter and plug it into the **Red (+) Rail** on your breadboard.
+   - Take the **Negative (GND / Black wire)** coming from your External 5V adapter and plug it into the **Blue (-) Rail** on your breadboard.
+
+3. **Connect the Shared Ground Wire:**
+   - Plug a jumper wire from the **GND pin** of your ESP32 board directly into the **Blue (-) Rail** on your breadboard.
+
+4. **Keep 3.3V and 5V Separate:**
+   - Do **NOT** connect the ESP32 `3.3V` pin to the external 5V Red rail!
+
+---
+
+### 🔌 Part 2: How to Build the Voltage Divider for Each Sensor
+
+Because the sensors output a 5V signal on their ECHO pin and the ESP32 can only take 3.3V, you must build a small "Voltage Divider" on the breadboard for each sensor using two resistors: **1kΩ** (1000 ohms) and **2kΩ** (2000 ohms).
+
+Here is how to build one divider on the breadboard:
+
+1. Pick an unused row on your breadboard (for example, **Row 10**).
+2. Take a **1kΩ resistor**:
+   - Plug one leg into the wire coming from the Sensor's **ECHO pin**.
+   - Plug the other leg into **Row 10**.
+3. Take a **2kΩ resistor**:
+   - Plug one leg into **Row 10** (in the exact same row as the 1kΩ resistor leg).
+   - Plug the other leg into the **Blue (-) Common Ground Rail**.
+4. Take a jumper wire to connect to the ESP32:
+   - Plug one end into **Row 10** (where the two resistors meet).
+   - Plug the other end into the designated **ESP32 GPIO pin** for that sensor's ECHO.
+
+---
+
+### 📍 Part 3: Step-by-Step Sensor Connections (Sensor by Sensor)
+
+#### 🟢 Sensor 1: Ground Floor Slot 1 (G1)
+1. **VCC:** Connect jumper wire from **G1 Sensor VCC pin** to **Red (+) External 5V Rail**.
+2. **GND:** Connect jumper wire from **G1 Sensor GND pin** to **Blue (-) Common Ground Rail**.
+3. **TRIG:** Connect jumper wire directly from **G1 Sensor TRIG pin** to **ESP32 GPIO 13**.
+4. **ECHO:** Connect **G1 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 34**.
+
+#### 🟢 Sensor 2: Ground Floor Slot 2 (G2)
+1. **VCC:** Connect jumper wire from **G2 Sensor VCC pin** to **Red (+) External 5V Rail**.
+2. **GND:** Connect jumper wire from **G2 Sensor GND pin** to **Blue (-) Common Ground Rail**.
+3. **TRIG:** Connect jumper wire directly from **G2 Sensor TRIG pin** to **ESP32 GPIO 14**.
+4. **ECHO:** Connect **G2 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 35**.
+
+#### 🟢 Sensor 3: Ground Floor Slot 3 (G3)
+1. **VCC:** Connect jumper wire from **G3 Sensor VCC pin** to **Red (+) External 5V Rail**.
+2. **GND:** Connect jumper wire from **G3 Sensor GND pin** to **Blue (-) Common Ground Rail**.
+3. **TRIG:** Connect jumper wire directly from **G3 Sensor TRIG pin** to **ESP32 GPIO 27**.
+4. **ECHO:** Connect **G3 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 36** *(labeled **VP**)*.
+
+#### 🟢 Sensor 4: Ground Floor Slot 4 (G4)
+1. **VCC:** Connect jumper wire from **G4 Sensor VCC pin** to **Red (+) External 5V Rail**.
+2. **GND:** Connect jumper wire from **G4 Sensor GND pin** to **Blue (-) Common Ground Rail**.
+3. **TRIG:** Connect jumper wire directly from **G4 Sensor TRIG pin** to **ESP32 GPIO 26**.
+4. **ECHO:** Connect **G4 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 39** *(labeled **VN**)*.
+
+#### 🔵 Sensor 5: First Floor Slot 1 (F1)
+1. **VCC:** Connect jumper wire from **F1 Sensor VCC pin** to **Red (+) External 5V Rail**.
+2. **GND:** Connect jumper wire from **F1 Sensor GND pin** to **Blue (-) Common Ground Rail**.
+3. **TRIG:** Connect jumper wire directly from **F1 Sensor TRIG pin** to **ESP32 GPIO 25**.
+4. **ECHO:** Connect **F1 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 18**.
+
+#### 🔵 Sensor 6: First Floor Slot 2 (F2)
+1. **VCC:** Connect jumper wire from **F2 Sensor VCC pin** to **Red (+) External 5V Rail**.
+2. **GND:** Connect jumper wire from **F2 Sensor GND pin** to **Blue (-) Common Ground Rail**.
+3. **TRIG:** Connect jumper wire directly from **F2 Sensor TRIG pin** to **ESP32 GPIO 33**.
+4. **ECHO:** Connect **F2 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 5**.
+
+#### 🔵 Sensor 7: First Floor Slot 3 (F3)
+1. **VCC:** Connect jumper wire from **F3 Sensor VCC pin** to **Red (+) External 5V Rail**.
+2. **GND:** Connect jumper wire from **F3 Sensor GND pin** to **Blue (-) Common Ground Rail**.
+3. **TRIG:** Connect jumper wire directly from **F3 Sensor TRIG pin** to **ESP32 GPIO 32**.
+4. **ECHO:** Connect **F3 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 17** *(labeled **TX2**)*.
+
+#### 🔵 Sensor 8: First Floor Slot 4 (F4)
+1. **VCC:** Connect jumper wire from **F4 Sensor VCC pin** to **Red (+) External 5V Rail**.
+2. **GND:** Connect jumper wire from **F4 Sensor GND pin** to **Blue (-) Common Ground Rail**.
+3. **TRIG:** Connect jumper wire directly from **F4 Sensor TRIG pin** to **ESP32 GPIO 19**.
+4. **ECHO:** Connect **F4 Sensor ECHO pin** through 1kΩ/2kΩ divider to **ESP32 GPIO 16** *(labeled **RX2**)*.
+
+---
+
+### 🚀 Step-by-Step Instructions to Run Test 3
+
+1. Power ON your **External 5V Power Adapter**.
+2. Open **Arduino IDE**.
+3. Go to **File** ➔ **Open** ➔ navigate to `firmware/tests/t02_hcsr04/t02_hcsr04.ino`.
+4. Click **Upload** (`➔`).
+5. Open **Serial Monitor** (115200 baud).
+6. Press **EN / RST** button on ESP32 once.
+
+---
+
+## 🧪 Test 4: Test 16 Slot LEDs (`t03_leds`)
+
+**Goal:** Test all 16 slot LEDs (8 Green + 8 Red) using both PCF8574 expanders. No external 5V power adapter needed—runs on ESP32 3.3V power over USB!
+
+---
+
+### 💡 Understanding "Active-LOW" LED Wiring
+- **Anode (long leg, +)** connects to **ESP32 3.3V**.
+- **Cathode (short leg, -)** connects through a **220Ω resistor** to the **PCF8574 pin (P0..P7)**.
+- Code sends **0 (LOW)** ➔ LED turns **ON**. Code sends **1 (HIGH)** ➔ LED turns **OFF**.
+
+---
+
+### 🔌 Part 1: Power & I²C Connections for the 2 LED Expanders
+
+1. **Ground Floor Expander (PCF8574 #2, Address `0x26` — A0 bridged):**
+   - **VCC** ➔ ESP32 **3.3V Rail** | **GND** ➔ ESP32 **GND Rail**
+   - **SDA** ➔ ESP32 **GPIO 21** | **SCL** ➔ ESP32 **GPIO 22**
+
+2. **First Floor Expander (PCF8574 #3, Address `0x25` — A1 bridged):**
+   - **VCC** ➔ ESP32 **3.3V Rail** | **GND** ➔ ESP32 **GND Rail**
+   - **SDA** ➔ ESP32 **GPIO 21** | **SCL** ➔ ESP32 **GPIO 22**
+
+---
+
+### 📍 Part 2: Detailed LED Connections (LED by LED)
+
+#### 🟢 Ground Floor Slot LEDs (PCF8574 #2 at `0x26`)
+- G1: Green ➔ P0, Red ➔ P1
+- G2: Green ➔ P2, Red ➔ P3
+- G3: Green ➔ P4, Red ➔ P5
+- G4: Green ➔ P6, Red ➔ P7
+
+#### 🔵 First Floor Slot LEDs (PCF8574 #3 at `0x25`)
+- F1: Green ➔ P0, Red ➔ P1
+- F2: Green ➔ P2, Red ➔ P3
+- F3: Green ➔ P4, Red ➔ P5
+- F4: Green ➔ P6, Red ➔ P7
+
+---
+
 ## 🧪 Test 5: Test Barrier Gate Servos (`t04_servo`)
 
 **Goal:** Test smooth opening (0° ➔ 90°) and closing (90° ➔ 0°) of both barrier gate servos.
@@ -84,99 +233,29 @@ Your **3 PCF8574 modules** share the same I²C bus (SDA=GPIO21, SCL=GPIO22):
 ---
 
 ### 🔌 Part 1: Power & Ground Setup
-- **Servo VCC (Red Wire):** Connect both servo red wires to your **External 5V Power Rail** *(NEVER power servos from ESP32 pins!)*.
+- **Servo VCC (Red Wire):** Connect both servo red wires to your **External 5V Power Rail**.
 - **Servo GND (Black or Brown Wire):** Connect both servo black/brown wires to the **Common Ground Rail**.
-- **Smoothing Capacitor:** Connect a **470µF to 1000µF electrolytic capacitor** across the External 5V rail near the servos:
-  - **Long leg (+):** Connect to **Red 5V Rail**.
-  - **Short leg (- / stripe side):** Connect to **Blue Ground Rail**.
 
 ---
 
 ### 📍 Part 2: Servo Signal Connections
-
-1. **Entry Gate Servo:**
-   - **Signal (Yellow or Orange Wire):** Connect directly to **ESP32 GPIO 23**.
-2. **Exit Gate Servo:**
-   - **Signal (Yellow or Orange Wire):** Connect directly to **ESP32 GPIO 15**.
-
----
-
-### 🚀 Part 3: Step-by-Step Instructions to Run Test 5
-
-1. Connect ESP32 to laptop via USB.
-2. Power ON your **External 5V Power Adapter**.
-3. Open **Arduino IDE**.
-4. Go to **File** ➔ **Open** ➔ navigate to `firmware/tests/t04_servo/t04_servo.ino`.
-5. Click **Upload** (`➔`).
-6. Open **Serial Monitor** (115200 baud).
-7. Press **EN / RST** button on ESP32 once.
-
----
-
-### 👁️ What to Watch During Test 5:
-
-1. The **Entry Servo** will sweep smoothly from **0° (closed) to 90° (open)** in 2° steps, hold for 1 second, and sweep back to **0° (closed)**.
-2. The **Exit Servo** will perform the exact same smooth sweep right after.
-
-> ⚠️ **Troubleshooting:**  
-> If the ESP32 reboots or freezes when a servo starts moving, your external 5V supply is inadequate or the capacitor is missing.
+1. **Entry Gate Servo Signal (Yellow/Orange Wire):** Connect to **ESP32 GPIO 23**.
+2. **Exit Gate Servo Signal (Yellow/Orange Wire):** Connect to **ESP32 GPIO 15**.
 
 ---
 
 ## 🧪 Test 6: Test Gate Status LEDs (`t05_gateleds`)
 
-**Goal:** Test the complementary Red/Green indicator LED pairs for Entry and Exit gates. **Runs directly from ESP32 USB power—no external 5V adapter needed!**
+**Goal:** Test the complementary Red/Green indicator LED pairs for Entry and Exit gates. **Runs directly from ESP32 USB power!**
 
 ---
 
-### 💡 Understanding Complementary LED Pair Wiring
-Each gate indicator uses **1 single GPIO pin to control 2 LEDs** (Green and Red):
-- When the GPIO pin is **HIGH (3.3V)**: Green LED turns **ON**, Red LED turns **OFF** (Gate Open / Free).
-- When the GPIO pin is **LOW (0V)**: Red LED turns **ON**, Green LED turns **OFF** (Gate Closed / Full).
+### 📍 Wiring Instructions:
 
----
+#### **Entry Gate Pair (Controlled by GPIO 4):**
+1. **Entry Green LED:** Anode (+) ➔ 220Ω ➔ **ESP32 GPIO 4** | Cathode (-) ➔ **Ground Rail**.
+2. **Entry Red LED:** Anode (+) ➔ 220Ω ➔ **ESP32 3.3V Rail** | Cathode (-) ➔ **ESP32 GPIO 4**.
 
-### 📍 Part 1: Entry Gate LED Pair Connections (Controlled by GPIO 4)
-
-1. **Entry Green LED:**
-   - Connect **Anode (long leg, +)** to one end of a **220Ω resistor**.
-   - Connect the other end of that resistor to **ESP32 GPIO 4**.
-   - Connect **Cathode (short leg, -)** directly to the **Common Ground Rail**.
-
-2. **Entry Red LED:**
-   - Connect **Anode (long leg, +)** to one end of a **220Ω resistor**.
-   - Connect the other end of that resistor to **ESP32 3.3V Rail**.
-   - Connect **Cathode (short leg, -)** directly to **ESP32 GPIO 4**.
-
----
-
-### 📍 Part 2: Exit Gate LED Pair Connections (Controlled by GPIO 2)
-
-1. **Exit Green LED:**
-   - Connect **Anode (long leg, +)** to one end of a **220Ω resistor**.
-   - Connect the other end of that resistor to **ESP32 GPIO 2**.
-   - Connect **Cathode (short leg, -)** directly to the **Common Ground Rail**.
-
-2. **Exit Red LED:**
-   - Connect **Anode (long leg, +)** to one end of a **220Ω resistor**.
-   - Connect the other end of that resistor to **ESP32 3.3V Rail**.
-   - Connect **Cathode (short leg, -)** directly to **ESP32 GPIO 2**.
-
----
-
-### 🚀 Part 3: Step-by-Step Instructions to Run Test 6
-
-1. Connect ESP32 to laptop via USB.
-2. Open **Arduino IDE**.
-3. Go to **File** ➔ **Open** ➔ navigate to `firmware/tests/t05_gateleds/t05_gateleds.ino`.
-4. Click **Upload** (`➔`).
-5. Open **Serial Monitor** (115200 baud).
-6. Press **EN / RST** button on ESP32 once.
-
----
-
-### 👁️ What to Watch During Test 6:
-
-1. **Entry Gate:** Toggles Green ON (Red OFF) for 2 seconds ➔ then Red ON (Green OFF) for 2 seconds.
-2. **Exit Gate:** Toggles Green ON (Red OFF) for 2 seconds ➔ then Red ON (Green OFF) for 2 seconds.
-3. **Both:** Turn Green together ➔ then turn Red together!
+#### **Exit Gate Pair (Controlled by GPIO 2):**
+1. **Exit Green LED:** Anode (+) ➔ 220Ω ➔ **ESP32 GPIO 2** | Cathode (-) ➔ **Ground Rail**.
+2. **Exit Red LED:** Anode (+) ➔ 220Ω ➔ **ESP32 3.3V Rail** | Cathode (-) ➔ **ESP32 GPIO 2**.
