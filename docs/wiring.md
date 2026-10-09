@@ -93,18 +93,28 @@ Scan complete. Found 3 device(s).
 === I2C scan complete ===
 ```
 
-## Sensor Test Results (from t02_hcsr04)
+## Sensor Test Results (from t02_hcsr04) - PASSED ☑
 
-| Slot | Distance empty (~cm) | Distance with car (~cm) | Status |
-|------|----------------------|-------------------------|--------|
-| G1 | | | ☐ OK |
-| G2 | | | ☐ OK |
-| G3 | | | ☐ OK |
-| G4 | | | ☐ OK |
-| F1 | | | ☐ OK |
-| F2 | | | ☐ OK |
-| F3 | | | ☐ OK |
-| F4 | | | ☐ OK |
+```text
+G1: 10.1 cm | G2:  9.4 cm | G3:  6.5 cm | G4:  4.9 cm
+F1:  9.1 cm | F2:  6.5 cm | F3:  5.8 cm | F4:  8.1 cm
+---
+(Hand placed over G1):
+G1:  5.2 cm | G2:  9.4 cm | G3:  6.4 cm | G4:  4.9 cm
+G1:  3.6 cm | G2:  7.4 cm | G3:  8.1 cm | G4:  6.2 cm
+G1:  2.3 cm | G2:  8.4 cm | G3:  8.4 cm | G4:  6.2 cm
+```
+
+| Slot | Baseline empty (~cm) | Status |
+|------|----------------------|--------|
+| G1 | ~10.1 cm | ☑ OK |
+| G2 | ~9.4 cm | ☑ OK |
+| G3 | ~6.5 cm | ☑ OK |
+| G4 | ~4.9 cm | ☑ OK |
+| F1 | ~9.1 cm | ☑ OK |
+| F2 | ~6.5 cm | ☑ OK |
+| F3 | ~5.8 cm | ☑ OK |
+| F4 | ~8.1 cm | ☑ OK |
 
 ## LED Test Results (from t03_leds)
 

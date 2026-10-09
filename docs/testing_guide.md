@@ -77,9 +77,10 @@ Your **3 PCF8574 modules** share the same I²C bus (SDA=GPIO21, SCL=GPIO22):
 
 ---
 
-## 🧪 Test 3: Test 8 Ultrasonic Sensors (`t02_hcsr04`) — Exact Breadboard Row Wiring Guide
+## 🧪 Test 3: Test 8 Ultrasonic Sensors (`t02_hcsr04`) — PASSED! ✅
 
-**Goal:** Connect all 8 HC-SR04 ultrasonic sensors using assigned breadboard rows for exact resistor junctions.
+- **Goal:** Connect all 8 HC-SR04 ultrasonic sensors using assigned breadboard rows for exact resistor junctions.
+- **Status:** **PASSED** (All 8 sensors G1–G4 and F1–F4 reading live distances cleanly!).
 
 ---
 
