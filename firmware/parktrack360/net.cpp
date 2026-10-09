@@ -18,6 +18,17 @@
 #include "sensors.h"
 #include "display.h"
 
+#if __has_include("secrets.h")
+#include "secrets.h"
+#elif __has_include("secrets.example.h")
+#include "secrets.example.h"
+#else
+#define WIFI_SSID      "YourSSID"
+#define WIFI_PASS      "YourPassword"
+#define SERVER_IP      "192.168.137.1"
+#define SERVER_PORT    8000
+#endif
+
 #include <WiFi.h>
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
@@ -104,7 +115,6 @@ namespace Net {
 
     void begin() {
         // Load network settings from NVS (fallback to secrets.h defaults)
-        #include "secrets.h"
         _ssid = Storage::loadSSID(WIFI_SSID);
         _pass = Storage::loadPass(WIFI_PASS);
         _serverIP = Storage::loadServerIP(SERVER_IP);

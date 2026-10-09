@@ -1,6 +1,8 @@
-# ParkTrack 360 — Wiring Verification Record
+# ParkTrack 360 — Hardware Verification Test Record
 
-## Board
+> **Note:** For the complete, beginner-friendly pin-by-pin integration wiring instructions without tables, see **[complete_wiring.md](complete_wiring.md)**.
+
+## Board Verification
 
 - **Module:** ESP32 DevKit V1 (30-pin)
 - **Variant:** ☑ WROOM (OK) / ☐ WROVER (PROBLEM — notify owner)
@@ -12,24 +14,18 @@
 - **Total PCF8574 Expanders on I²C bus:** 3 modules
 - **Library:** `LiquidCrystal_I2C` by Frank de Brabander
 
-### Required I²C Address Map & Solder Bridge Settings (HW-61 Modules)
+### Confirmed I²C Address Map & Solder Bridge Settings (HW-61 Modules)
 
-To prevent address conflicts on the shared I²C bus (SDA = GPIO21, SCL = GPIO22), the 3 PCF8574 modules MUST have distinct addresses:
-
-| Module | Purpose | Address | Solder Pad Bridge (HW-61) | Notes |
-|--------|---------|---------|---------------------------|-------|
-| **PCF8574 #1** | 16x2 LCD Display Backpack | `0x27` (or `0x3F`) | All open (default) | Do NOT solder pads on LCD backpack |
-| **PCF8574 #2** | Ground Floor Slot LEDs (G1–G4) | `0x26` | Bridge **A0** pad with solder blob | Ground floor active-LOW expander |
-| **PCF8574 #3** | First Floor Slot LEDs (F1–F4) | `0x25` | Bridge **A1** pad with solder blob | First floor active-LOW expander |
+- **PCF8574 #1 (16x2 LCD Backpack):** Address `0x27` (All A0–A2 pads unbridged / default)
+- **PCF8574 #2 (Ground Floor LEDs G1–G4):** Address `0x26` (A0 pad bridged with solder blob)
+- **PCF8574 #3 (First Floor LEDs F1–F4):** Address `0x25` (A1 pad bridged with solder blob)
 
 ---
 
-## Complete Wiring Guide (16x2 LCD Version)
-
-### 1. Common Ground & Power Rails
-- **Common Ground (GND Bus):** ESP32 GND, External 5V GND, 8x HC-SR04 GND, 3x PCF8574 GND, 2x Servo GND.
-- **ESP32 3.3V Rail:** Powers the 16x2 LCD backpack VCC and the 2x Slot LED PCF8574 module VCCs.
-- **External 5V 2A Rail:** Powers 8x HC-SR04 VCC and 2x Servo VCC.
+## Power Rails Summary
+- **Common Ground (GND Bus):** Shared by ESP32 GND, External 5V GND, all 8 sensors, all 3 expanders, and both servos.
+- **ESP32 3.3V Rail:** Powers the 16x2 LCD backpack and the 2x slot LED expanders.
+- **External 5V 2A Rail:** Powers the 8x HC-SR04 sensors and the 2x servos (with 470µF–1000µF capacitor).
 
 ### 2. I²C Shared Bus (3.3V Logic)
 All 3 I²C modules share the same SDA & SCL lines:
