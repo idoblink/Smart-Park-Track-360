@@ -77,10 +77,20 @@ Wiring: **3.3V ➔ 220Ω ➔ LED Anode (+) | LED Cathode (-) ➔ PCF8574 Pin**
 
 ---
 
-## I²C Scan Verification Results (from t01_i2c_scan)
+## I²C Scan Verification Results (from t01_i2c_scan) - PASSED ☑
 
-```
-Paste actual serial output from t01_i2c_scan here once all 3 modules are scanned
+```text
+=== ParkTrack 360 — I2C Scanner (16x2 LCD Version) ===
+
+Scanning I2C bus (SDA=21, SCL=22) ...
+
+  Found device at 0x25  <-- PCF8574 (A1 bridged / First Floor LEDs)
+  Found device at 0x26  <-- PCF8574 (A0 bridged / Ground Floor LEDs)
+  Found device at 0x27  <-- PCF8574 (Default address / 16x2 LCD Backpack)
+
+Scan complete. Found 3 device(s).
+
+=== I2C scan complete ===
 ```
 
 ## Sensor Test Results (from t02_hcsr04)

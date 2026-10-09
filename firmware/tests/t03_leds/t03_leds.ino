@@ -29,9 +29,9 @@
 #define PIN_SDA  21
 #define PIN_SCL  22
 
-// Change these if your modules are PCF8574A (0x38, 0x39)
-#define ADDR_PCF_GROUND  0x20
-#define ADDR_PCF_FIRST   0x21
+// Expander addresses matching your hardware setup (A0 bridged=0x26, A1 bridged=0x25)
+#define ADDR_PCF_GROUND  0x26
+#define ADDR_PCF_FIRST   0x25
 
 // LED names for each bit on each expander
 static const char* LED_NAMES_GROUND[8] = {
