@@ -114,15 +114,32 @@ G1:  2.3 cm | G2:  8.4 cm | G3:  8.4 cm | G4:  6.2 cm
 | F3 | ~5.8 cm | ☑ OK |
 | F4 | ~8.1 cm | ☑ OK |
 
-## LED Test Results (from t03_leds)
+## LED Test Results (from t03_leds) - PASSED ☑
 
-- Pattern 0xAA (All Vacant - Green ON): ☐ OK
-- Pattern 0x55 (All Occupied - Red ON): ☐ OK
-- Pattern 0x00 (All ON): ☐ OK
-- Pattern 0xFF (All OFF): ☐ OK
-- Individual LED Walk: ☐ OK
+```text
+PCF8574 found at 0x26
+PCF8574 found at 0x25
 
-## Servo Test Results (from t04_servo)
+=== Pattern Test ===
+Writing 0xAA to 0x26 and 0x25  (all slots vacant: all green ON, all red OFF)
+Writing 0x55 to 0x26 and 0x25  (all slots occupied: all red ON, all green OFF)
+Writing 0x00 to 0x26 and 0x25  (ALL LEDs ON)
+Writing 0xFF to 0x26 and 0x25  (ALL LEDs OFF)
 
-- Entry Servo Sweep (GPIO23): ☐ OK
-- Exit Servo Sweep (GPIO15): ☐ OK
+=== Individual LED Walk ===
+Ground floor (0x26): P0..P7 (G1 green to G4 red) ☑ OK
+First floor (0x25):  P0..P7 (F1 green to F4 red) ☑ OK
+
+=== LED test complete ===
+```
+
+- Pattern 0xAA (All Vacant - Green ON): ☑ OK
+- Pattern 0x55 (All Occupied - Red ON): ☑ OK
+- Pattern 0x00 (All ON): ☑ OK
+- Pattern 0xFF (All OFF): ☑ OK
+- Individual LED Walk: ☑ OK
+
+## Servo Test Results (from t04_servo) - PASSED ☑
+
+- Entry Servo Sweep (GPIO23): ☑ OK
+- Exit Servo Sweep (GPIO15): ☑ OK

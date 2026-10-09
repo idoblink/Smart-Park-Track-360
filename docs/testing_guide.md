@@ -84,9 +84,10 @@ Your **3 PCF8574 modules** share the same I²C bus (SDA=GPIO21, SCL=GPIO22):
 
 ---
 
-## 🧪 Test 4: Test 16 Slot LEDs (`t03_leds`) — Detailed Step-by-Step Wiring Guide
+## 🧪 Test 4: Test 16 Slot LEDs (`t03_leds`) — PASSED! ✅
 
-**Goal:** Test all 16 slot LEDs (8 Green + 8 Red) using both PCF8574 expanders. No external 5V power adapter needed—runs entirely on ESP32 3.3V USB power!
+- **Goal:** Test all 16 slot LEDs (8 Green + 8 Red) using both PCF8574 expanders.
+- **Status:** **PASSED** (Both expanders `0x26` and `0x25` walked through all 16 LEDs cleanly!).
 
 ---
 
