@@ -3,131 +3,113 @@
 ## Board
 
 - **Module:** ESP32 DevKit V1 (30-pin)
-- **Variant:** ☐ WROOM (OK) / ☐ WROVER (PROBLEM — notify owner)
-- **PSRAM size from t06_psram:** _________ bytes
+- **Variant:** ☑ WROOM (OK) / ☐ WROVER (PROBLEM — notify owner)
+- **PSRAM size from t06_psram:** 0 bytes (Confirmed - WROOM module)
 
-## I²C Scan Results (from t01_i2c_scan)
+## Display & I²C Configuration
 
-Paste serial output here:
+- **Display type:** **16x2 Character LCD** (with PCF8574 I²C backpack `JHD 162A`)
+- **Total PCF8574 Expanders on I²C bus:** 3 modules
+- **Library:** `LiquidCrystal_I2C` by Frank de Brabander
+
+### Required I²C Address Map & Solder Bridge Settings (HW-61 Modules)
+
+To prevent address conflicts on the shared I²C bus (SDA = GPIO21, SCL = GPIO22), the 3 PCF8574 modules MUST have distinct addresses:
+
+| Module | Purpose | Address | Solder Pad Bridge (HW-61) | Notes |
+|--------|---------|---------|---------------------------|-------|
+| **PCF8574 #1** | 16x2 LCD Display Backpack | `0x27` (or `0x3F`) | All open (default) | Do NOT solder pads on LCD backpack |
+| **PCF8574 #2** | Ground Floor Slot LEDs (G1–G4) | `0x26` | Bridge **A0** pad with solder blob | Ground floor active-LOW expander |
+| **PCF8574 #3** | First Floor Slot LEDs (F1–F4) | `0x25` | Bridge **A1** pad with solder blob | First floor active-LOW expander |
+
+---
+
+## Complete Wiring Guide (16x2 LCD Version)
+
+### 1. Common Ground & Power Rails
+- **Common Ground (GND Bus):** ESP32 GND, External 5V GND, 8x HC-SR04 GND, 3x PCF8574 GND, 2x Servo GND, LED returns.
+- **ESP32 3.3V Rail:** Powers the 16x2 LCD backpack VCC and the 2x Slot LED PCF8574 module VCCs.
+- **External 5V 2A Rail:** Powers 8x HC-SR04 VCC and 2x Servo VCC.
+
+### 2. I²C Shared Bus (3.3V Logic)
+All 3 I²C modules share the same SDA & SCL lines:
+- **ESP32 GPIO21** ➔ SDA (16x2 LCD SDA, PCF8574 #2 SDA, PCF8574 #3 SDA)
+- **ESP32 GPIO22** ➔ SCL (16x2 LCD SCL, PCF8574 #2 SCL, PCF8574 #3 SCL)
+
+### 3. 8× HC-SR04 Ultrasonic Sensors
+- **VCC:** External 5V Rail
+- **GND:** Ground Bus
+- **TRIG Pins:** Direct to ESP32 GPIO
+- **ECHO Pins:** Through 1kΩ / 2kΩ Divider (5V ➔ 3.33V) to ESP32 GPIO
+
+| Slot | TRIG GPIO | ECHO GPIO | Divider Setup |
+|------|-----------|-----------|---------------|
+| G1 | 13 | 34 | ECHO ➔ 1kΩ ➔ ESP32 Pin ➔ 2kΩ ➔ GND |
+| G2 | 14 | 35 | ECHO ➔ 1kΩ ➔ ESP32 Pin ➔ 2kΩ ➔ GND |
+| G3 | 27 | 36 (VP) | ECHO ➔ 1kΩ ➔ ESP32 Pin ➔ 2kΩ ➔ GND |
+| G4 | 26 | 39 (VN) | ECHO ➔ 1kΩ ➔ ESP32 Pin ➔ 2kΩ ➔ GND |
+| F1 | 25 | 18 | ECHO ➔ 1kΩ ➔ ESP32 Pin ➔ 2kΩ ➔ GND |
+| F2 | 33 | 5 | ECHO ➔ 1kΩ ➔ ESP32 Pin ➔ 2kΩ ➔ GND |
+| F3 | 32 | 17 (TX2) | ECHO ➔ 1kΩ ➔ ESP32 Pin ➔ 2kΩ ➔ GND |
+| F4 | 19 | 16 (RX2) | ECHO ➔ 1kΩ ➔ ESP32 Pin ➔ 2kΩ ➔ GND |
+
+### 4. 16 Slot LEDs (Active-LOW via PCF8574s)
+Wiring: **3.3V ➔ 220Ω ➔ LED Anode (+) | LED Cathode (-) ➔ PCF8574 Pin**
+
+- **PCF8574 #2 (Ground Floor, Address 0x26):**
+  - G1: Green = P0, Red = P1
+  - G2: Green = P2, Red = P3
+  - G3: Green = P4, Red = P5
+  - G4: Green = P6, Red = P7
+
+- **PCF8574 #3 (First Floor, Address 0x25):**
+  - F1: Green = P0, Red = P1
+  - F2: Green = P2, Red = P3
+  - F3: Green = P4, Red = P5
+  - F4: Green = P6, Red = P7
+
+### 5. Gate Servos & Gate Indicator LEDs
+- **Entry Servo Signal:** ESP32 **GPIO23** (VCC ➔ External 5V, GND ➔ Common GND)
+- **Exit Servo Signal:** ESP32 **GPIO15** (VCC ➔ External 5V, GND ➔ Common GND)
+- **Capacitor:** 470µF–1000µF across External 5V rail near servos
+- **Entry Gate LED Pair:** ESP32 **GPIO4** (Complementary Pair)
+- **Exit Gate LED Pair:** ESP32 **GPIO2** (Complementary Pair)
+
+---
+
+## I²C Scan Verification Results (from t01_i2c_scan)
 
 ```
-(paste output here)
+Paste actual serial output from t01_i2c_scan here once all 3 modules are scanned
 ```
 
-### Confirmed Addresses
+## Sensor Test Results (from t02_hcsr04)
 
-| Device | Expected | Found | Notes |
-|--------|----------|-------|-------|
-| SSD1306 OLED | 0x3C | | 0x3D on some modules |
-| PCF8574 #1 (Ground floor) | 0x20 | | 0x38 if PCF8574A |
-| PCF8574 #2 (First floor) | 0x21 | | 0x39 if PCF8574A |
+| Slot | Distance empty (~cm) | Distance with car (~cm) | Status |
+|------|----------------------|-------------------------|--------|
+| G1 | | | ☐ OK |
+| G2 | | | ☐ OK |
+| G3 | | | ☐ OK |
+| G4 | | | ☐ OK |
+| F1 | | | ☐ OK |
+| F2 | | | ☐ OK |
+| F3 | | | ☐ OK |
+| F4 | | | ☐ OK |
 
-### OLED
+## LED Test Results (from t03_leds)
 
-- Resolution: ☐ 128×64 / ☐ 128×32
-- I²C address confirmed: _______
+- Pattern 0xAA (All Vacant - Green ON): ☐ OK
+- Pattern 0x55 (All Occupied - Red ON): ☐ OK
+- Pattern 0x00 (All ON): ☐ OK
+- Pattern 0xFF (All OFF): ☐ OK
+- Individual LED Walk: ☐ OK
 
-### PCF8574 Type
+## Servo Test Results (from t04_servo)
 
-- ☐ PCF8574 (addresses 0x20–0x27)
-- ☐ PCF8574A (addresses 0x38–0x3F)
+- Entry Servo Sweep (GPIO23): ☐ OK
+- Exit Servo Sweep (GPIO15): ☐ OK
 
-## HC-SR04 Sensor Test (from t02_hcsr04)
+## Gate LED Pair Test Results (from t05_gateleds)
 
-Paste serial output here:
-
-```
-(paste output here)
-```
-
-### Sensor Check
-
-| Slot | TRIG GPIO | ECHO GPIO | Baseline (~empty, cm) | With car (~cm) | Status |
-|------|-----------|-----------|----------------------|----------------|--------|
-| G1 | 13 | 34 | | | ☐ OK / ☐ FAIL |
-| G2 | 14 | 35 | | | ☐ OK / ☐ FAIL |
-| G3 | 27 | 36 (VP) | | | ☐ OK / ☐ FAIL |
-| G4 | 26 | 39 (VN) | | | ☐ OK / ☐ FAIL |
-| F1 | 25 | 18 | | | ☐ OK / ☐ FAIL |
-| F2 | 33 | 5 | | | ☐ OK / ☐ FAIL |
-| F3 | 32 | 17 (TX2) | | | ☐ OK / ☐ FAIL |
-| F4 | 19 | 16 (RX2) | | | ☐ OK / ☐ FAIL |
-
-## LED Test (from t03_leds)
-
-### Pattern Test
-
-| Pattern | Hex | Expected | Observed |
-|---------|-----|----------|----------|
-| All vacant | 0xAA | All greens ON, all reds OFF | ☐ OK / ☐ FAIL |
-| All occupied | 0x55 | All reds ON, all greens OFF | ☐ OK / ☐ FAIL |
-| All ON | 0x00 | All 16 LEDs ON | ☐ OK / ☐ FAIL |
-| All OFF | 0xFF | All 16 LEDs OFF | ☐ OK / ☐ FAIL |
-
-### Individual LED Walk
-
-| LED | Lit correctly? | Notes |
-|-----|---------------|-------|
-| G1 green (0x20 P0) | ☐ | |
-| G1 red (0x20 P1) | ☐ | |
-| G2 green (0x20 P2) | ☐ | |
-| G2 red (0x20 P3) | ☐ | |
-| G3 green (0x20 P4) | ☐ | |
-| G3 red (0x20 P5) | ☐ | |
-| G4 green (0x20 P6) | ☐ | |
-| G4 red (0x20 P7) | ☐ | |
-| F1 green (0x21 P0) | ☐ | |
-| F1 red (0x21 P1) | ☐ | |
-| F2 green (0x21 P2) | ☐ | |
-| F2 red (0x21 P3) | ☐ | |
-| F3 green (0x21 P4) | ☐ | |
-| F3 red (0x21 P5) | ☐ | |
-| F4 green (0x21 P6) | ☐ | |
-| F4 red (0x21 P7) | ☐ | |
-
-## Servo Test (from t04_servo)
-
-| Gate | GPIO | Sweeps smoothly? | Notes |
-|------|------|-------------------|-------|
-| Entry | 23 | ☐ OK / ☐ FAIL | |
-| Exit | 15 | ☐ OK / ☐ FAIL | GPIO15 may twitch at boot (expected) |
-
-- Did the ESP32 reset during servo movement? ☐ Yes / ☐ No
-- External 5V supply used? ☐ Yes / ☐ No
-- Capacitor installed? ☐ Yes / ☐ No
-
-## Gate LED Pair Test (from t05_gateleds)
-
-| Pair | GPIO | GREEN when HIGH? | RED when LOW? | Notes |
-|------|------|-------------------|---------------|-------|
-| Entry | 4 | ☐ OK / ☐ FAIL | ☐ OK / ☐ FAIL | |
-| Exit | 2 | ☐ OK / ☐ FAIL | ☐ OK / ☐ FAIL | Upload issues? Disconnect LED lead |
-
-## Arduino IDE Configuration
-
-- **Board:** ESP32 Dev Module
-- **Espressif core version:** _______
-- **Upload speed:** 921600 (default)
-- **COM port:** _______
-
-## Libraries Used
-
-| Library | Version | Source |
-|---------|---------|--------|
-| Wire | (built-in) | ESP32 core |
-| ESP32Servo | | Arduino Library Manager |
-| Adafruit GFX | | Arduino Library Manager |
-| Adafruit SSD1306 | | Arduino Library Manager |
-| WebSockets (Markus Sattler) | | Arduino Library Manager |
-| ArduinoJson | v7.x | Arduino Library Manager |
-
-## Wiring Verification Checklist (Appendix B)
-
-- [ ] All grounds common (external 5V supply, ESP32, sensors, PCF8574s, servos, LED returns)
-- [ ] Servo 5V and sensor 5V come from the external supply, not from the ESP32
-- [ ] Every ECHO goes through 1kΩ → junction (to ESP32) → 2kΩ → GND
-- [ ] PCF8574 and OLED powered from 3.3V; SDA = 21, SCL = 22
-- [ ] Slot LEDs: 3.3V → 220Ω → anode, cathode → PCF8574 pin
-- [ ] Gate pair: green GPIO → 220Ω → LED → GND; red 3.3V → 220Ω → LED → same GPIO
-- [ ] Capacitor across servo 5V rail
-- [ ] Nothing on GPIO0/12; GPIO1 unconnected
+- Entry Pair (GPIO4): ☐ OK
+- Exit Pair (GPIO2): ☐ OK

@@ -1,23 +1,21 @@
 /*
- * t01_i2c_scan.ino — I²C bus scanner
+ * t01_i2c_scan.ino — I²C bus scanner (16x2 LCD + 2x PCF8574 version)
  *
- * PURPOSE: Find all devices on the I²C bus (SDA=GPIO21, SCL=GPIO22).
+ * PURPOSE: Find all 3 devices on the I²C bus (SDA=GPIO21, SCL=GPIO22).
  *          Expected devices:
- *            - SSD1306 OLED at 0x3C (or 0x3D on some modules)
- *            - PCF8574 #1 (ground floor) at 0x20 (or 0x38 if PCF8574A)
- *            - PCF8574 #2 (first floor) at 0x21 (or 0x39 if PCF8574A)
+ *            - PCF8574 #1 (16x2 LCD Display Backpack) at 0x27 (or 0x3F)
+ *            - PCF8574 #2 (Ground floor LEDs) at 0x26 (A0 bridged with solder)
+ *            - PCF8574 #3 (First floor LEDs) at 0x25 (A1 bridged with solder)
  *
  * WIRING: SDA → GPIO21, SCL → GPIO22
- *         All I²C devices powered from ESP32 3.3V + common GND
+ *         All 3 I²C modules powered from ESP32 3.3V + common GND
  *
  * EXPECTED OUTPUT (Serial, 115200 baud):
  *   Scanning I2C bus (SDA=21, SCL=22) ...
- *   Found device at 0x20
- *   Found device at 0x21
- *   Found device at 0x3C
+ *   Found device at 0x25  <-- PCF8574 (First Floor LEDs)
+ *   Found device at 0x26  <-- PCF8574 (Ground Floor LEDs)
+ *   Found device at 0x27  <-- PCF8574 (16x2 LCD Backpack)
  *   Scan complete. Found 3 device(s).
- *
- * RECORD: Paste the serial output into docs/wiring.md
  */
 
 #include <Wire.h>
@@ -30,7 +28,7 @@ void setup() {
   delay(1000);
 
   Serial.println();
-  Serial.println("=== ParkTrack 360 — I2C Scanner ===");
+  Serial.println("=== ParkTrack 360 — I2C Scanner (16x2 LCD Version) ===");
   Serial.println();
 
   Wire.begin(PIN_SDA, PIN_SCL);
@@ -51,17 +49,16 @@ void setup() {
       if (addr < 16) Serial.print("0");
       Serial.print(addr, HEX);
 
-      // Identify known devices
-      if (addr == 0x3C || addr == 0x3D) {
-        Serial.print("  <-- SSD1306 OLED");
+      if (addr == 0x27 || addr == 0x3F) {
+        Serial.print("  <-- PCF8574 (Default address / 16x2 LCD Backpack)");
+      } else if (addr == 0x26) {
+        Serial.print("  <-- PCF8574 (A0 bridged / Ground Floor LEDs)");
+      } else if (addr == 0x25) {
+        Serial.print("  <-- PCF8574 (A1 bridged / First Floor LEDs)");
       } else if (addr >= 0x20 && addr <= 0x27) {
-        Serial.print("  <-- PCF8574 (address offset ");
-        Serial.print(addr - 0x20);
-        Serial.print(")");
+        Serial.print("  <-- PCF8574 expander");
       } else if (addr >= 0x38 && addr <= 0x3F) {
-        Serial.print("  <-- PCF8574A (address offset ");
-        Serial.print(addr - 0x38);
-        Serial.print(")");
+        Serial.print("  <-- PCF8574A expander");
       }
       Serial.println();
       found++;
@@ -73,13 +70,12 @@ void setup() {
   Serial.print(found);
   Serial.println(" device(s).");
 
-  if (found == 0) {
+  if (found < 3) {
     Serial.println();
-    Serial.println("!! No devices found. Check wiring:");
-    Serial.println("   - SDA to GPIO21, SCL to GPIO22");
-    Serial.println("   - 3.3V power to each module");
-    Serial.println("   - All GNDs connected to the common ground bus");
-    Serial.println("   - Pull-up resistors present (most breakouts have them)");
+    Serial.println("!! Found fewer than 3 devices. Check:");
+    Serial.println("   1. Have you set different addresses for the expanders? (e.g. solder A0 on one, A1 on the second)");
+    Serial.println("   2. Are all 3 modules powered with 3.3V and GND?");
+    Serial.println("   3. Are SDA to GPIO21 and SCL to GPIO22 connected securely?");
   }
 
   Serial.println();
@@ -87,5 +83,5 @@ void setup() {
 }
 
 void loop() {
-  // Nothing to do — scan runs once
+  // Nothing to do
 }

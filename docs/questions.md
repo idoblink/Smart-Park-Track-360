@@ -6,13 +6,14 @@ Items that need your answer before proceeding. The spec says to write concerns h
 
 ## From Step 1 (Hardware Checks)
 
-### Q1. OLED resolution
-The spec assumes **128×64**. After running `t01_i2c_scan`, please confirm:
-- Is your OLED module 128×64 or 128×32?
-- What I²C address did the scan find? (expected 0x3C)
+### Q1. Display Hardware
+- **Confirmed:** **16x2 Character LCD** with PCF8574 I²C backpack (`JHD 162A`). OLED is NOT used anywhere.
+- **Library:** `LiquidCrystal_I2C`
 
-### Q2. PCF8574 or PCF8574A?
-The I²C scan will tell us. If your modules respond at 0x38/0x39 instead of 0x20/0x21, they are PCF8574A and we need to update `config.h`.
+### Q2. PCF8574 Expanders (Total 3)
+- **LCD Backpack:** Address `0x27` (default, no solder bridge)
+- **Ground Floor Slot LEDs:** Address `0x26` (A0 pad bridged)
+- **First Floor Slot LEDs:** Address `0x25` (A1 pad bridged)
 
 ### Q3. Servo angles
 The defaults are: closed = 0°, open = 90°. After running `t04_servo`:

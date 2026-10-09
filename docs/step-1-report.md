@@ -11,7 +11,7 @@ Six test sketches in `firmware/tests/`, each verifying a specific hardware subsy
 
 | Test | Folder | Purpose |
 |------|--------|---------|
-| t01 | `firmware/tests/t01_i2c_scan/` | Scan I²C bus: find OLED and PCF8574 addresses |
+| t01 | `firmware/tests/t01_i2c_scan/` | Scan I²C bus: find 16x2 LCD backpack & 2x PCF8574 addresses |
 | t02 | `firmware/tests/t02_hcsr04/` | Read all 8 HC-SR04 sensors continuously |
 | t03 | `firmware/tests/t03_leds/` | Test all 16 slot LEDs via both PCF8574 expanders |
 | t04 | `firmware/tests/t04_servo/` | Sweep both servos (entry & exit gates) |
