@@ -45,6 +45,7 @@ namespace Net {
     static uint16_t _serverPort;
 
     static bool _wsConnected = false;
+    static bool _wsStarted = false;
     static bool _helloAcked = false;
     static unsigned long _lastServerMsg = 0;
     static unsigned long _lastHeartbeat = 0;
@@ -123,6 +124,11 @@ namespace Net {
         Serial.printf("[Net] Wi-Fi: %s\n", _ssid.c_str());
         Serial.printf("[Net] Server: %s:%d\n", _serverIP.c_str(), _serverPort);
 
+        _wsConnected = false;
+        _wsStarted = false;
+        _helloAcked = false;
+        _linkUp = false;
+
         // Start Wi-Fi
         WiFi.mode(WIFI_STA);
         WiFi.setAutoReconnect(true);
@@ -143,22 +149,24 @@ namespace Net {
 
         // --- Wi-Fi management ---
         if (WiFi.status() == WL_CONNECTED) {
-            if (!_wsConnected && !_ws.isConnected()) {
-                // Start WebSocket connection
-                String path = "/ws/esp32";
-                _ws.begin(_serverIP.c_str(), _serverPort, path.c_str());
+            if (!_wsStarted) {
+                _wsStarted = true;
+                _ws.begin(_serverIP.c_str(), _serverPort, "/ws/esp32");
+                Serial.printf("[Net] WebSocket client started to %s:%d/ws/esp32\n",
+                              _serverIP.c_str(), _serverPort);
             }
             _ws.loop();
         } else {
             // Wi-Fi not connected
-            if (now - _lastWifiCheck > 5000) {
-                _lastWifiCheck = now;
-                Serial.printf("[Net] Wi-Fi status: %d (not connected)\n", WiFi.status());
-            }
-            if (_wsConnected) {
+            if (_wsStarted) {
+                _wsStarted = false;
                 _wsConnected = false;
                 _linkUp = false;
                 Gates::setLinkUp(false);
+            }
+            if (now - _lastWifiCheck > 5000) {
+                _lastWifiCheck = now;
+                Serial.printf("[Net] Wi-Fi status: %d (connecting...)\n", WiFi.status());
             }
         }
 
@@ -257,6 +265,9 @@ namespace Net {
         Storage::saveSSID(ssid);
         Storage::savePass(pass);
         Serial.printf("[Net] Wi-Fi credentials saved. Reconnecting to '%s'...\n", ssid);
+        _ws.disconnect();
+        _wsConnected = false;
+        _wsStarted = false;
         WiFi.disconnect();
         WiFi.begin(_ssid.c_str(), _pass.c_str());
     }
@@ -269,6 +280,7 @@ namespace Net {
         Serial.printf("[Net] Server set to %s:%d. Reconnecting...\n", ip, port);
         _ws.disconnect();
         _wsConnected = false;
+        _wsStarted = false;
     }
 
     String getIP() {
