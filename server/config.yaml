@@ -33,15 +33,44 @@ vision:
   min_box_px: 24
 
 camera:
-  # Camera Source:
-  # Option A (Android Phone over Wi-Fi via "IP Webcam" app): "http://<PHONE_IP>:8080/video"
-  # Option B (Android Phone over USB via DroidCam / Iriun Webcam): 0 or 1
-  # Option C (Standard USB Webcam): 0
-  source: "http://192.168.29.62:8080/video"
-  backend: auto
-  width: 1280
-  height: 720
-  fps: 30
-  fourcc: MJPG
+  # Camera Mode:
+  #   "dual"   -> 2 dedicated USB webcams (one at Entry lane, one at Exit lane - RECOMMENDED)
+  #   "single" -> 1 overhead camera or phone stream split into Entry & Exit ROIs
+  mode: "dual"
+
+  # --- Dual USB Webcam Setup (Entry & Exit Lanes) ---
+  entry:
+    # Camera index on Windows (e.g. 0 on Desktop, or 1 if laptop has built-in webcam) or IP stream URL
+    source: 0
+    backend: dshow
+    width: 1280
+    height: 720
+    fps: 30
+    fourcc: MJPG
+    roi: [100, 100, 1080, 520]
+
+  exit:
+    # Camera index on Windows (e.g. 1 on Desktop, or 2 if laptop has built-in webcam) or IP stream URL
+    source: 1
+    backend: dshow
+    width: 1280
+    height: 720
+    fps: 30
+    fourcc: MJPG
+    roi: [100, 100, 1080, 520]
+
+  # --- Single Overhead Camera / Phone Stream Fallback ---
+  single:
+    source: "http://192.168.29.62:8080/video"
+    backend: auto
+    width: 1280
+    height: 720
+    fps: 30
+    fourcc: MJPG
+    entry_roi: [440, 160, 400, 400]
+    exit_roi: [840, 160, 400, 400]
+
+  # Top-level backward compatibility aliases
+  source: 0
   entry_roi: [440, 160, 400, 400]
   exit_roi: [840, 160, 400, 400]

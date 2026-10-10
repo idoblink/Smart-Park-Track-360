@@ -36,20 +36,24 @@ For recognizing small printed digit labels (1–8) on toy Hot Wheels cars, the c
 
 ### Recommended Camera Models:
 
-* **Option 1: Android Smartphone Camera (Recommended for Testing — Zero Extra Cost / Existing Hardware)**
+* **Option 1: Dual USB Webcams (Recommended Real-World / Physical Model Setup — ₹800 to ₹1,400 for pair)**
+  * **Configuration:** 2 independent USB webcams plugged into your laptop / host PC (e.g., Quantum QHM495LM or Zebronics Crystal Clear).
+  * **Placement:**
+    * **Webcam 1 (Entry Lane):** Mounted directly at or above the Entry boom barrier (Camera Index `0` or `1`).
+    * **Webcam 2 (Exit Lane):** Mounted directly at or above the Exit boom barrier (Camera Index `1` or `2`).
+  * **Advantages over single camera:**
+    * **Zero perspective distortion:** No need for an unwieldy high-mast tripod trying to split view between two separated lanes.
+    * **Double the resolution:** Each lane gets a full 1280×720 or 1080p sensor feed dedicated to its barrier.
+    * **Closer macro distance (20–30 cm):** High-confidence digit reading under standard ambient lighting.
+
+* **Option 2: Android Smartphone Camera (Ideal for Rapid Zero-Cost Testing)**
   * **Key Feature:** Exceptional image sensor, tap-to-focus macro capability at 20–35 cm, high resolution (1080p/720p). Connects via Wi-Fi (using free "IP Webcam" app) or USB (via DroidCam / Iriun Webcam).
   * **Connection Type:** Wi-Fi MJPEG stream URL (e.g., `http://192.168.1.X:8080/video`) or Virtual DirectShow Webcam.
   * **Cost:** ₹0 (uses your existing Android phone).
 
-* **Option 2: Quantum QHM495LM / Zebronics Crystal Clear (Dedicated Budget Webcam — ₹400 to ₹700 / ~$5 to $9)**
-  * **Key Feature:** Physical manual focus ring on the lens barrel. You can manually twist the lens ring to achieve razor-sharp focus at exactly 20–30 cm.
-  * **Resolution:** 720p native sensor.
-  * **Interface:** USB 2.0.
-
-* **Option 3: Logitech C270 / C310 (Standard Hobbyist Benchmark — ₹1,500 to ₹2,200 / ~$18 to $26)**
-  * **Key Feature:** Extremely reliable UVC drivers, stable frame rates, excellent exposure balancing under desk lighting.
-  * **Resolution:** 720p (1280×720) at 30 FPS.
-  * **Focus Note:** Fixed factory focus is ~40 cm. Works well if mounted at 35 cm or with a small DIY lens twist adjustment.
+* **Option 3: Single Overhead Webcam (Budget / Minimalist Setup)**
+  * **Key Feature:** One central camera mounted high above both lanes using split software ROIs.
+  * **Resolution:** 720p native sensor at 30 FPS.
 
 ### Mounting & Tag Accessories:
 * **Overhead Camera Stand / Gooseneck Arm:** Rigid mount holding the webcam 25–35 cm vertically above the track lanes.

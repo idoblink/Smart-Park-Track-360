@@ -220,12 +220,20 @@
 ---
 
 ## 8. USB Camera & Host Computer Wiring
+ 
+### Dual USB Webcams Setup (Entry & Exit Lanes — Recommended)
+* **Entry Lane USB Webcam:**
+  * **USB-A Connector** ➔ Laptop / Host PC USB Port 1 (Provides 5V power and MJPEG video feed)
+  * **Mounting Position** ➔ 20 cm to 30 cm directly facing or overhead above the **Entry Boom Barrier**
+  * **Config Mapping** ➔ `camera.entry.source` in `server/config.yaml` (typically Index `0` or `1`)
+* **Exit Lane USB Webcam:**
+  * **USB-A Connector** ➔ Laptop / Host PC USB Port 2 (Direct connection or via powered USB hub)
+  * **Mounting Position** ➔ 20 cm to 30 cm directly facing or overhead above the **Exit Boom Barrier**
+  * **Config Mapping** ➔ `camera.exit.source` in `server/config.yaml` (typically Index `1` or `2`)
+* **Note** ➔ Neither webcam connects to the ESP32 (all video streams directly to the host PC/laptop CPU)
 
-### Single Overhead USB Webcam (Entry & Exit Lane Vision)
-* **USB-A Connector** ➔ Laptop / Host PC USB Port (Direct connection, provides 5V power and MJPEG video feed)
-* **Mounting Position** ➔ 25 cm to 35 cm overhead, centered between Entry and Exit lanes
-* **Lens Alignment** ➔ Looking straight down at car roofs (tags 1–8 clearly visible in both lane ROIs)
-* **Note** ➔ Camera does NOT connect to ESP32 (all computer vision runs on host laptop CPU)
+### Alternative: Single Overhead Camera / Phone Stream (Fallback)
+* **USB-A / Wi-Fi** ➔ 1 camera mounted 35 cm centrally overhead covering both lanes with software ROIs
 
 ---
 
