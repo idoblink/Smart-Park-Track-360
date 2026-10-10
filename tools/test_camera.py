@@ -197,60 +197,64 @@ def run_dual_cameras(entry_src, exit_src, cam_cfg):
     fps_x = 0.0
     t_prev = time.time()
 
-    while True:
-        ret_e, frame_e = cap_entry.read()
-        ret_x, frame_x = cap_exit.read()
+    try:
+        while True:
+            ret_e, frame_e = cap_entry.read()
+            ret_x, frame_x = cap_exit.read()
 
-        now = time.time()
-        dt = max(1e-5, now - t_prev)
-        t_prev = now
+            now = time.time()
+            dt = max(1e-5, now - t_prev)
+            t_prev = now
 
-        if ret_e and frame_e is not None:
-            fps_e = 0.9 * fps_e + 0.1 * (1.0 / dt)
-            he, we = frame_e.shape[:2]
-            # Entry Lane HUD (Green styling)
-            cv2.rectangle(frame_e, (0, 0), (we, 50), (30, 80, 30), -1)
-            cv2.putText(frame_e, f"[ENTRY LANE] Cam {e_source} | {we}x{he} | {fps_e:.1f} FPS", (15, 34),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 120), 2)
-            cv2.rectangle(frame_e, (0, 0), (we - 1, he - 1), (0, 255, 120), 3)
-        else:
-            frame_e = np.zeros((480, 640, 3), dtype=np.uint8)
-            cv2.putText(frame_e, "ENTRY CAMERA LOST", (50, 240),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+            if ret_e and frame_e is not None:
+                fps_e = 0.9 * fps_e + 0.1 * (1.0 / dt)
+                he, we = frame_e.shape[:2]
+                # Entry Lane HUD (Green styling)
+                cv2.rectangle(frame_e, (0, 0), (we, 50), (30, 80, 30), -1)
+                cv2.putText(frame_e, f"[ENTRY LANE] Cam {e_source} | {we}x{he} | {fps_e:.1f} FPS", (15, 34),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 120), 2)
+                cv2.rectangle(frame_e, (0, 0), (we - 1, he - 1), (0, 255, 120), 3)
+            else:
+                frame_e = np.zeros((480, 640, 3), dtype=np.uint8)
+                cv2.putText(frame_e, "ENTRY CAMERA WAITING", (50, 240),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
 
-        if ret_x and frame_x is not None:
-            fps_x = 0.9 * fps_x + 0.1 * (1.0 / dt)
-            hx, wx = frame_x.shape[:2]
-            # Exit Lane HUD (Cyan styling)
-            cv2.rectangle(frame_x, (0, 0), (wx, 50), (80, 60, 20), -1)
-            cv2.putText(frame_x, f"[EXIT LANE] Cam {x_source} | {wx}x{hx} | {fps_x:.1f} FPS", (15, 34),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 220, 0), 2)
-            cv2.rectangle(frame_x, (0, 0), (wx - 1, hx - 1), (255, 220, 0), 3)
-        else:
-            frame_x = np.zeros((480, 640, 3), dtype=np.uint8)
-            cv2.putText(frame_x, "EXIT CAMERA LOST", (50, 240),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+            if ret_x and frame_x is not None:
+                fps_x = 0.9 * fps_x + 0.1 * (1.0 / dt)
+                hx, wx = frame_x.shape[:2]
+                # Exit Lane HUD (Cyan styling)
+                cv2.rectangle(frame_x, (0, 0), (wx, 50), (80, 60, 20), -1)
+                cv2.putText(frame_x, f"[EXIT LANE] Cam {x_source} | {wx}x{hx} | {fps_x:.1f} FPS", (15, 34),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 220, 0), 2)
+                cv2.rectangle(frame_x, (0, 0), (wx - 1, hx - 1), (255, 220, 0), 3)
+            else:
+                frame_x = np.zeros((480, 640, 3), dtype=np.uint8)
+                cv2.putText(frame_x, "EXIT CAMERA WAITING", (50, 240),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
 
-        # Normalize height if resolutions differ
-        he = frame_e.shape[0]
-        hx = frame_x.shape[0]
-        if he != hx:
-            target_h = min(he, hx)
-            we_new = int(frame_e.shape[1] * (target_h / he))
-            wx_new = int(frame_x.shape[1] * (target_h / hx))
-            frame_e = cv2.resize(frame_e, (we_new, target_h))
-            frame_x = cv2.resize(frame_x, (wx_new, target_h))
+            # Normalize height if resolutions differ
+            he = frame_e.shape[0]
+            hx = frame_x.shape[0]
+            if he != hx:
+                target_h = min(he, hx)
+                we_new = int(frame_e.shape[1] * (target_h / he))
+                wx_new = int(frame_x.shape[1] * (target_h / hx))
+                frame_e = cv2.resize(frame_e, (we_new, target_h))
+                frame_x = cv2.resize(frame_x, (wx_new, target_h))
 
-        combined = np.hstack([frame_e, frame_x])
-        cv2.imshow(window_name, combined)
+            combined = np.hstack([frame_e, frame_x])
+            cv2.imshow(window_name, combined)
 
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q') or key == 27:
-            break
-
-    cap_entry.release()
-    cap_exit.release()
-    cv2.destroyAllWindows()
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q') or key == 27:
+                break
+    except KeyboardInterrupt:
+        print("\n[INFO] Monitor stopped by user (Ctrl+C).")
+    finally:
+        cap_entry.release()
+        cap_exit.release()
+        cv2.destroyAllWindows()
+        print("[INFO] Cameras released successfully.")
     return True
 
 def main():

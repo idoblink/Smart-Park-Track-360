@@ -40,24 +40,24 @@ camera:
 
   # --- Dual USB Webcam Setup (Entry & Exit Lanes) ---
   entry:
-    # Camera index on Windows (e.g. 0 on Desktop, or 1 if laptop has built-in webcam) or IP stream URL
-    source: 0
-    backend: dshow
-    width: 1280
-    height: 720
-    fps: 30
-    fourcc: MJPG
-    roi: [100, 100, 1080, 520]
-
-  exit:
-    # Camera index on Windows (e.g. 1 on Desktop, or 2 if laptop has built-in webcam) or IP stream URL
+    # Camera index on Windows (Index 1 is Entry USB webcam)
     source: 1
     backend: dshow
-    width: 1280
-    height: 720
+    width: 640
+    height: 480
     fps: 30
     fourcc: MJPG
-    roi: [100, 100, 1080, 520]
+    roi: [50, 50, 540, 380]
+
+  exit:
+    # Camera index on Windows (Index 2 is Exit USB webcam)
+    source: 2
+    backend: dshow
+    width: 640
+    height: 480
+    fps: 30
+    fourcc: MJPG
+    roi: [50, 50, 540, 380]
 
   # --- Single Overhead Camera / Phone Stream Fallback ---
   single:

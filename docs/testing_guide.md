@@ -247,9 +247,10 @@ Make sure **WebSockets** by Markus Sattler is installed in Arduino IDE Library M
 ### 🚀 Uploading the Full Firmware:
 1. Connect ESP32 to laptop via USB.
 2. Open **Arduino IDE**.
-3. Go to **File** ➔ **Open** ➔ select `firmware/parktrack360/parktrack360.ino`.
-4. Click **Upload** (`➔`).
-5. Open **Serial Monitor** at **115200 baud**.
+3. Verify your Wi-Fi details in `firmware/parktrack360/secrets.h` (Laptop IP is already configured to `192.168.29.37`).
+4. Go to **File** ➔ **Open** ➔ select `firmware/parktrack360/parktrack360.ino`.
+5. Click **Upload** (`➔`).
+6. Open **Serial Monitor** at **115200 baud**.
 
 ### 🎮 How to Test Using Serial Monitor:
 1. Type `help` ➔ see the complete list of commands.
@@ -266,3 +267,69 @@ Make sure **WebSockets** by Markus Sattler is installed in Arduino IDE Library M
 6. Type `gate entry open`:
    - Entry gate smoothly sweeps open, waits 5s, then closes!
 7. Type `status` anytime to view all real-time distances, baselines, and gate states.
+
+---
+
+## 📹 Test 7: Dual USB Webcams Alignment & Testing
+
+Now that you have connected the 2 USB cameras:
+
+### 1. Scan Connected Webcams
+Open PowerShell in the project directory and run:
+```powershell
+python tools/test_camera.py --list
+```
+* Windows will probe DirectShow devices.
+* Your laptop's built-in webcam is typically `Index 0`.
+* Your two plugged-in USB webcams will be detected as `Index 1` (Entry) and `Index 2` (Exit) (or `0` and `1` on a desktop PC).
+
+### 2. Verify and Adjust `server/config.yaml`
+Confirm the indices match in [server/config.yaml](file:///c:/Users/Hades/Documents/Smart-Park-Track-360/server/config.yaml):
+```yaml
+camera:
+  mode: "dual"
+  entry:
+    source: 1    # Index of Entry webcam
+  exit:
+    source: 2    # Index of Exit webcam
+```
+
+### 3. Open Dual Split-Screen Preview & Focus Alignment
+Run:
+```powershell
+python tools/test_camera.py --dual
+```
+* A split window will open showing **[ENTRY LANE]** on the left (green HUD) and **[EXIT LANE]** on the right (cyan HUD).
+* **Lens Alignment:** Aim the Entry webcam at the entry boom barrier and the Exit webcam at the exit barrier (20–30 cm distance).
+* **Focus Check:** Place a toy car at each gate and twist the lens focus ring (if manual focus) until the number tag is razor-sharp.
+* Press `q` to close the preview when satisfied.
+
+---
+
+## 🌐 Test 8: End-to-End Live Web Dashboard & Autonomous Billing
+
+With the ESP32 flashed and the 2 webcams aligned, start the full autonomous system!
+
+### 1. Start the Host Server
+Run the batch file or terminal command:
+```powershell
+.\run_server.bat
+```
+*(Or run `python -m uvicorn server.app:app --host 0.0.0.0 --port 8000`)*
+
+### 2. Open the Web Dashboard in Your Browser
+* **User Live Parking View:** [http://localhost:8000](http://localhost:8000)
+  * View live Total Slots (8), Available Slots, Occupied Slots, and interactive Ground (G1–G4) / First (F1–F4) floor slot maps.
+* **Admin Operator Portal:** [http://localhost:8000/admin](http://localhost:8000/admin) (Log in with `admin` / `admin360`).
+  * Live gate manual override buttons, ESP32 WebSocket link monitor, hardware calibration trigger, and audit event logs.
+* **Autonomous Payment & Checkout:** [http://localhost:8000/payment](http://localhost:8000/payment)
+
+### 3. End-to-End Live Workflow Validation:
+1. **ESP32 Connection:** Notice the dashboard badge changes to **`ESP32: ONLINE`** with green heartbeat pulses.
+2. **Autonomous Slot Update:** Place a car in slot G1 ➔ The web dashboard slot G1 immediately turns **RED (Occupied)**, physical LED turns RED, and 16x2 LCD shows `Free: 7`.
+3. **Barrier Gate Actuation:** Click "Open Entry Gate" in the Admin portal ➔ The physical SG90 servo sweeps to 90°, stays open for 5 seconds, and closes smoothly.
+4. **Autonomous Cashless Checkout:**
+   * Navigate to [http://localhost:8000/payment](http://localhost:8000/payment).
+   * Enter Vehicle #1.
+   * View the dwell time and calculated fee (₹40 for 1st hour, +₹20/hr thereafter).
+   * Click **"Pay & Open Exit Gate"** ➔ Instant settlement receipt generates, and the Exit boom barrier lifts automatically!
