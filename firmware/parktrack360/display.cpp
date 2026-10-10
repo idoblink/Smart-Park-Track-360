@@ -63,20 +63,15 @@ namespace Display {
         char line0[LCD_COLS + 1];
         char line1[LCD_COLS + 1];
 
-        if (!Slots::isCalibrated()) {
-            snprintf(line0, sizeof(line0), " SMART PARKING");
-            snprintf(line1, sizeof(line1), "  CALIBRATE");
+        uint8_t occ  = Slots::occupiedCount();
+        uint8_t free = Slots::freeCount();
+
+        snprintf(line0, sizeof(line0), " SMART PARKING");
+
+        if (free == 0 && occ > 0) {
+            snprintf(line1, sizeof(line1), " PARKING FULL");
         } else {
-            uint8_t occ  = Slots::occupiedCount();
-            uint8_t free = Slots::freeCount();
-
-            snprintf(line0, sizeof(line0), " SMART PARKING");
-
-            if (free == 0) {
-                snprintf(line1, sizeof(line1), " PARKING FULL");
-            } else {
-                snprintf(line1, sizeof(line1), "Occ:%-2d Free:%-2d", occ, free);
-            }
+            snprintf(line1, sizeof(line1), "Occ:%-2d Free:%-2d", occ, free);
         }
 
         // Only redraw if content changed

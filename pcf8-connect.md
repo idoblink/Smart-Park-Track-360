@@ -4,6 +4,20 @@ This guide provides beginner-friendly, step-by-step wiring instructions for usin
 
 ---
 
+## ⚡ Live Operating Behavior (No Calibration Needed)
+
+The firmware is configured to operate immediately upon boot:
+* **Distance > 2.5 cm (Empty slot / background distance):**
+  - Corresponding slot LED turns **GREEN** (Vacant).
+* **Distance ≤ 2.5 cm (Hand or model vehicle placed in slot):**
+  - Corresponding slot LED turns **RED** (Occupied).
+* **16×2 LCD Screen:**
+  - Line 0: ` SMART PARKING`
+  - Line 1: `Occ:0  Free:8` (Dynamically updates, e.g. `Occ:1  Free:7` when a hand/car is placed in any slot).
+  - Displays ` PARKING FULL` when all 8 slots are occupied.
+
+---
+
 ## 1. Visual Map of the PCF8574 (HW-61) Board
 
 Look at your HW-61 board with the 16-pin row along the top and the 4-pin row at the bottom:
