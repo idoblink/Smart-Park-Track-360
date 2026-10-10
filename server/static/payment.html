@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Parking Checkout | ParkTrack 360</title>
+  <meta name="description" content="Pay your parking fee instantly using UPI QR Code, Card, or Fastag with instant barrier unlock.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💳</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body style="background-color: #050505;">
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="/" class="nav-brand">
+        <div class="brand-icon">P</div>
+        <div>
+          <div class="brand-title">PARKTRACK 360</div>
+          <div class="brand-badge">EXPRESS CHECKOUT PORTAL</div>
+        </div>
+      </a>
+
+      <div class="nav-actions">
+        <a href="/" class="btn btn-dark btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          <span>Back to Facility Map</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Checkout Container -->
+  <main class="payment-page-container">
+    <div style="margin-bottom: 2rem;">
+      <span class="section-badge">ONLINE SETTLEMENT & EXIT CLEARANCE</span>
+      <h1 class="font-bebas" style="font-size: clamp(2.6rem, 5vw, 4rem); line-height: 1; color: #fff; margin-bottom: 0.5rem;">
+        PAY PARKING FEE
+      </h1>
+      <p style="color: var(--text-secondary); font-size: 0.95rem;">
+        Select your vehicle number, verify your parking duration, and scan the UPI QR code to unlock the exit boom barrier.
+      </p>
+    </div>
+
+    <!-- Payment Layout: Left = Bill Breakdown, Right = UPI QR / Card -->
+    <div class="payment-layout" id="checkoutView">
+      
+      <!-- Left: Car Selection & Session Breakdown -->
+      <div class="checkout-card">
+        <span style="font-size: 0.72rem; font-weight: 800; color: var(--gold-primary); text-transform: uppercase; letter-spacing: 0.15em; display: block; margin-bottom: 0.75rem;">
+          STEP 1: SELECT YOUR VEHICLE
+        </span>
+        
+        <div class="car-select-grid" id="checkoutCarGrid">
+          <button class="car-select-btn" data-car="1">Car #1</button>
+          <button class="car-select-btn" data-car="2">Car #2</button>
+          <button class="car-select-btn" data-car="3">Car #3</button>
+          <button class="car-select-btn" data-car="4">Car #4</button>
+          <button class="car-select-btn" data-car="5">Car #5</button>
+          <button class="car-select-btn" data-car="6">Car #6</button>
+          <button class="car-select-btn" data-car="7">Car #7</button>
+          <button class="car-select-btn" data-car="8">Car #8</button>
+        </div>
+
+        <!-- Vehicle Status Banner -->
+        <div id="vehicleStatusBox" style="background: #000; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="font-family: var(--font-display); font-size: 1.5rem; color: #fff;" id="statusCarName">Car #1</span>
+            <span class="slot-status-pill occupied" id="statusPill">PARKED IN G1</span>
+          </div>
+          <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;" id="statusText">
+            Checked in at 14:32 • Ultrasonic sensor verified.
+          </div>
+        </div>
+
+        <!-- Bill Breakdown Table -->
+        <span style="font-size: 0.72rem; font-weight: 800; color: var(--gold-primary); text-transform: uppercase; letter-spacing: 0.15em; display: block; margin-bottom: 0.75rem;">
+          STEP 2: TARIFF BREAKDOWN
+        </span>
+        <div class="bill-breakdown">
+          <div class="bill-row">
+            <span>First Hour Rate (0–60 min)</span>
+            <span id="billBaseFee">₹40.00</span>
+          </div>
+          <div class="bill-row">
+            <span>Parked Bay / Location</span>
+            <span id="billSlotLocation">Ground Floor (G1)</span>
+          </div>
+          <div class="bill-row">
+            <span>Elapsed Dwell Time</span>
+            <span id="billDwellTime" style="font-family: var(--font-mono); font-weight: 700; color: #fff;">00:14:32</span>
+          </div>
+          <div class="bill-row">
+            <span>Additional Hours Rate</span>
+            <span id="billHourlyRate">+₹20.00 / hr (pro-rated)</span>
+          </div>
+          <div class="bill-row total-row">
+            <span>Total Payable</span>
+            <span class="amount" id="billTotalAmount">₹40.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Payment Method & Dynamic UPI QR Card -->
+      <div class="qr-checkout-card">
+        <span style="font-family: var(--font-mono); font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.15em; display: block; margin-bottom: 0.4rem;">
+          STEP 3: AUTONOMOUS SCAN & PAY
+        </span>
+        <h2 class="font-bebas" style="font-size: 2.2rem; color: #000; line-height: 1; margin-bottom: 0.5rem;">
+          INSTANT UPI CHECKOUT
+        </h2>
+        <p style="font-size: 0.85rem; color: #475569; margin-bottom: 1rem;">
+          Scan with Google Pay, PhonePe, Paytm, or BHIM. Zero cash delays.
+        </p>
+
+        <!-- Dynamic QR Container -->
+        <div class="qr-box" id="qrContainer">
+          <!-- Rendered dynamically via SVG / Canvas -->
+        </div>
+
+        <div style="font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; color: #0f172a; margin-bottom: 0.4rem;">
+          UPI ID: <span style="color: #2563eb;">parktrack360@okaxis</span>
+        </div>
+        <div style="font-size: 0.78rem; color: #64748b; margin-bottom: 1.5rem;">
+          Amount: <strong style="color: #000; font-size: 1rem;" id="qrAmountText">₹40.00</strong>
+        </div>
+
+        <!-- Payment Actions (Digital Only) -->
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <button class="btn btn-primary" id="btnVerifyPayment" style="width: 100%; padding: 0.85rem 1.5rem;">
+            <span>I Have Paid • Verify & Open Exit</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
+          
+          <button class="btn btn-dark" id="btnFastagAutoPay" style="width: 100%; padding: 0.65rem 1.5rem; font-size: 0.75rem;">
+            <span>Simulate Contactless Card / Fastag</span>
+          </button>
+        </div>
+
+        <!-- Accepted UPI Apps -->
+        <div class="upi-apps-row">
+          <span>GPay</span> • <span>PhonePe</span> • <span>Paytm</span> • <span>BHIM</span> • <span>Cred</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Receipt / Success View (Initially Hidden) -->
+    <div id="receiptView" style="display: none;">
+      <div class="receipt-container">
+        <div class="receipt-header">
+          <div style="width: 48px; height: 48px; background: var(--emerald-free); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <span style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 800; color: var(--emerald-free); text-transform: uppercase; letter-spacing: 0.2em;">PAYMENT CONFIRMED</span>
+          <h2 class="receipt-title" style="margin-top: 0.25rem;">PARKING INVOICE</h2>
+          <p style="font-size: 0.85rem; color: #64748b;" id="receiptIdText">Receipt #RCP-1-1728500000</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; font-size: 0.9rem;">
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.4rem;">
+            <span style="color: #64748b;">Vehicle Number</span>
+            <strong id="rcpCarNum">Car #1</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.4rem;">
+            <span style="color: #64748b;">Assigned Bay</span>
+            <strong id="rcpSlotId">Slot G1</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.4rem;">
+            <span style="color: #64748b;">Total Duration</span>
+            <strong id="rcpDuration">24 mins 12 secs</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.4rem;">
+            <span style="color: #64748b;">Payment Method</span>
+            <strong id="rcpMethod">UPI (Verified)</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: 800; padding-top: 0.5rem; border-top: 2px solid #0f172a;">
+            <span>Amount Paid</span>
+            <span style="color: #059669;" id="rcpAmountPaid">₹20.00</span>
+          </div>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; text-align: center; margin-bottom: 1.5rem;">
+          <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 0.2rem;">
+            EXIT BOOM BARRIER UNLOCKED
+          </div>
+          <p style="font-size: 0.75rem; color: #64748b;">
+            Please proceed towards the exit gate. Barrier is commanded open for your departure.
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem;">
+          <button class="btn btn-dark" onclick="window.print()" style="flex: 1;">
+            <span>Print Receipt</span>
+          </button>
+          <a href="/" class="btn btn-primary" style="flex: 1;">
+            <span>Return to Home</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/static/payment.js"></script>
+</body>
+</html>

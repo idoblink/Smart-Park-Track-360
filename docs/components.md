@@ -36,18 +36,20 @@ For recognizing small printed digit labels (1–8) on toy Hot Wheels cars, the c
 
 ### Recommended Camera Models:
 
-* **Option A: Quantum QHM495LM / Zebronics Crystal Clear (Budget Choice — ₹400 to ₹700 / ~$5 to $9)**
+* **Option 1: Android Smartphone Camera (Recommended for Testing — Zero Extra Cost / Existing Hardware)**
+  * **Key Feature:** Exceptional image sensor, tap-to-focus macro capability at 20–35 cm, high resolution (1080p/720p). Connects via Wi-Fi (using free "IP Webcam" app) or USB (via DroidCam / Iriun Webcam).
+  * **Connection Type:** Wi-Fi MJPEG stream URL (e.g., `http://192.168.1.X:8080/video`) or Virtual DirectShow Webcam.
+  * **Cost:** ₹0 (uses your existing Android phone).
+
+* **Option 2: Quantum QHM495LM / Zebronics Crystal Clear (Dedicated Budget Webcam — ₹400 to ₹700 / ~$5 to $9)**
   * **Key Feature:** Physical manual focus ring on the lens barrel. You can manually twist the lens ring to achieve razor-sharp focus at exactly 20–30 cm.
   * **Resolution:** 720p native sensor.
   * **Interface:** USB 2.0.
 
-* **Option B: Logitech C270 / C310 (Standard Hobbyist Benchmark — ₹1,500 to ₹2,200 / ~$18 to $26)**
+* **Option 3: Logitech C270 / C310 (Standard Hobbyist Benchmark — ₹1,500 to ₹2,200 / ~$18 to $26)**
   * **Key Feature:** Extremely reliable UVC drivers, stable frame rates, excellent exposure balancing under desk lighting.
   * **Resolution:** 720p (1280×720) at 30 FPS.
   * **Focus Note:** Fixed factory focus is ~40 cm. Works well if mounted at 35 cm or with a small DIY lens twist adjustment.
-
-* **Option C: Logitech C920 / C922 (Premium Choice — ₹6,000+ / ~$75+)**
-  * **Key Feature:** Full HD 1080p, motorized autofocus that can be locked via software using `cv2.CAP_PROP_AUTOFOCUS=0`.
 
 ### Mounting & Tag Accessories:
 * **Overhead Camera Stand / Gooseneck Arm:** Rigid mount holding the webcam 25–35 cm vertically above the track lanes.
@@ -131,10 +133,6 @@ For recognizing small printed digit labels (1–8) on toy Hot Wheels cars, the c
   * **Quantity:** 1
   * **Role:** Connects the 5V power adapter plug safely to breadboard wire leads (+5V and GND).
 
-* **Electrolytic Smoothing Capacitor**
-  * **Quantity:** 1
-  * **Value:** 470 µF to 1000 µF (Rated 16V or 25V)
-  * **Role:** Placed directly across the 5V and GND rails near the servos to absorb motor current spikes.
 
 ---
 

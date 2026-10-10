@@ -1,0 +1,47 @@
+server:
+  host: 0.0.0.0
+  port: 8000
+
+timezone: Asia/Kolkata
+
+esp32:
+  stale_after_s: 3
+  heartbeat_s: 1
+
+gate:
+  hold_ms: 5000
+  cooldown_s: 8
+  rearm_empty_s: 1.0
+
+entered_warn_s: 120
+
+pricing:
+  first_hour_fee: 40.0         # First hour rate in INR
+  additional_hourly_rate: 20.0 # Rate per additional hour in INR
+  base_fee: 40.0               # Backward compatibility alias
+  hourly_rate: 20.0            # Backward compatibility alias
+  grace_period_min: 0.0        # Grace period in minutes
+  currency: "INR"
+
+vision:
+  model: vision/best.onnx
+  device: cpu
+  imgsz: 640
+  max_fps: 10
+  stable_frames: 5
+  min_conf: 0.70
+  min_box_px: 24
+
+camera:
+  # Camera Source:
+  # Option A (Android Phone over Wi-Fi via "IP Webcam" app): "http://<PHONE_IP>:8080/video"
+  # Option B (Android Phone over USB via DroidCam / Iriun Webcam): 0 or 1
+  # Option C (Standard USB Webcam): 0
+  source: "http://192.168.29.62:8080/video"
+  backend: auto
+  width: 1280
+  height: 720
+  fps: 30
+  fourcc: MJPG
+  entry_roi: [440, 160, 400, 400]
+  exit_roi: [840, 160, 400, 400]

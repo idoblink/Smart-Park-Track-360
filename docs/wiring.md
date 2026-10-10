@@ -25,7 +25,7 @@
 ## Power Rails Summary
 - **Common Ground (GND Bus):** Shared by ESP32 GND, External 5V GND, all 8 sensors, all 3 expanders, and both servos.
 - **ESP32 3.3V Rail:** Powers the 16x2 LCD backpack and the 2x slot LED expanders.
-- **External 5V 2A Rail:** Powers the 8x HC-SR04 sensors and the 2x servos (with 470µF–1000µF capacitor).
+- **External 5V 2A Rail:** Powers the 8x HC-SR04 sensors and the 2x servos.
 
 ### 2. I²C Shared Bus (3.3V Logic)
 All 3 I²C modules share the same SDA & SCL lines:

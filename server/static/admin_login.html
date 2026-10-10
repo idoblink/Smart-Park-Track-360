@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login | ParkTrack 360</title>
+  <meta name="description" content="Authorized facility operator portal login for ParkTrack 360.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body style="background-color: #050505; min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between;">
+
+  <!-- Simple Navbar -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="/" class="nav-brand">
+        <div class="brand-icon">P</div>
+        <div>
+          <div class="brand-title">PARKTRACK 360</div>
+          <div class="brand-badge">STAFF & OPERATOR ACCESS</div>
+        </div>
+      </a>
+
+      <div class="nav-actions">
+        <a href="/" class="btn btn-dark btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          <span>Return to User Site</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Login Card Form -->
+  <main class="container" style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 3rem 1.5rem;">
+    <div class="admin-login-box">
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <span class="admin-header-pill">RESTRICTED PORTAL</span>
+        <h1 class="font-bebas" style="font-size: 2.8rem; line-height: 1; color: #fff; margin-top: 0.75rem; margin-bottom: 0.5rem;">
+          ADMINISTRATOR LOGIN
+        </h1>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">
+          Access barrier gate overrides, distance sensor calibration, and raw audit telemetries.
+        </p>
+      </div>
+
+      <!-- Error message container -->
+      <div id="loginError" style="display: none; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-size: 0.82rem; margin-bottom: 1.5rem;">
+        Invalid username or password. Please try again.
+      </div>
+
+      <form id="adminLoginForm">
+        <div style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.4rem; letter-spacing: 0.05em;">
+            Username
+          </label>
+          <input type="text" id="loginUsername" class="form-input" value="admin" required autocomplete="username" placeholder="Enter username">
+        </div>
+
+        <div style="margin-bottom: 1.75rem;">
+          <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.4rem; letter-spacing: 0.05em;">
+            Password
+          </label>
+          <input type="password" id="loginPassword" class="form-input" value="admin360" required autocomplete="current-password" placeholder="Enter password">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem 1.5rem;" id="btnLoginSubmit">
+          <span>Sign In to Admin Console</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </form>
+
+      <div style="margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle); text-align: center;">
+        <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted);">
+          Demo Credentials: <strong style="color: var(--gold-light);">admin</strong> / <strong style="color: var(--gold-light);">admin360</strong>
+        </span>
+      </div>
+    </div>
+  </main>
+
+  <!-- Minimal Footer -->
+  <footer style="border-top: 1px solid var(--border-subtle); padding: 1.5rem 0; text-align: center; font-size: 0.78rem; color: var(--text-muted);">
+    &copy; 2026 ParkTrack 360 • Mysuru Smart City IoT Project
+  </footer>
+
+  <script>
+    document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const u = document.getElementById('loginUsername').value.trim();
+      const p = document.getElementById('loginPassword').value.trim();
+      const errBox = document.getElementById('loginError');
+      const submitBtn = document.getElementById('btnLoginSubmit');
+
+      errBox.style.display = 'none';
+      submitBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: u, password: p })
+        });
+
+        const data = await res.json();
+        if (data.ok) {
+          sessionStorage.setItem('pts_admin_token', data.token);
+          window.location.href = '/admin';
+        } else {
+          errBox.textContent = data.detail || 'Invalid username or password.';
+          errBox.style.display = 'block';
+          submitBtn.disabled = false;
+        }
+      } catch (err) {
+        errBox.textContent = 'Connection error. Please try again.';
+        errBox.style.display = 'block';
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

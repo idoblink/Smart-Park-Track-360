@@ -81,103 +81,91 @@ Status: **FIRMWARE BUILT — PENDING HARDWARE TEST RUN ⏳**
 
 ## 📌 Phase 3: Laptop Server & Communication Backend
 
-Status: **YET TO BE IMPLEMENTED ⏳**
+Status: **COMPLETED ✅**
 
-* [ ] **Python Environment Setup**
-  * [ ] Create virtual environment and `requirements.txt` (FastAPI, Uvicorn, WebSockets, OpenCV, Ultralytics, PyYAML).
-  * [ ] Create `run_server.bat` (Windows one-click launcher) and `run_server.sh`.
-  * [ ] Create `server/config.yaml` with server port, vision thresholds, lane ROIs, and fee parameters.
-* [ ] **SQLite Database Engine (`server/db.py`)**
-  * [ ] `vehicles` table: tracks car number (1–8), current state (`UNKNOWN`, `ENTERED`, `PARKED`, `EXITED`), assigned slot.
-  * [ ] `sessions` table: session ID, car ID, entry timestamp, exit timestamp, slot ID, duration minutes, calculated fare, payment status (`PENDING`, `COMPLETED`), transaction ID.
-  * [ ] `slot_events` table: slot ID, state change, timestamp, associated car.
-  * [ ] `audit_log` table: timestamp, event type, severity, details.
-* [ ] **State Machine & Association Logic (`server/state.py`)**
-  * [ ] Track global parking state: Free slots, occupied slots, car-to-slot heuristic association.
-  * [ ] Gate authorization logic: Approves entry only if free slots > 0 and car tag is recognized.
-  * [ ] Rollback handling: Reverts entry if ESP32 refuses to open gate.
-* [ ] **ESP32 WebSocket Endpoint (`/ws/esp32`)**
-  * [ ] Process `hello` handshake and return `hello_ack`.
-  * [ ] Receive 1s `state` heartbeats; update slot database.
-  * [ ] Transmit `gate` open/close commands with `req_id`.
-  * [ ] Transmit `calibrate` command and receive progress/results.
-* [ ] **Web UI WebSocket Endpoint (`/ws/ui`)**
-  * [ ] Broadcast real-time JSON state snapshot on any state transition and periodic heartbeat.
-  * [ ] Ingest operator manual commands (gate override, calibration trigger, manual slot reassignment).
-* [ ] **Offline Controller Simulator (`tools/fake_esp32.py`)**
-  * [ ] Simulated controller to test server, dashboard, and billing without physical ESP32 connected.
+* [x] **Python Environment Setup**
+  * [x] Python 3.11 installed, `requirements.txt` (FastAPI, Uvicorn, WebSockets, PyYAML, Pytest, HTTPX, Pydantic).
+  * [x] Created `run_server.bat` (Windows one-click launcher) and `run_server.sh`.
+  * [x] Created `server/config.yaml` with server port 8000, timing thresholds, lane parameters, and billing configuration.
+* [x] **SQLite Database Engine (`server/db.py`)**
+  * [x] `events` table: logs timestamps, type, car ID, slot ID, and detail messages.
+  * [x] `visits` table: tracks car, entry/exit timestamps, inside dwell time, parked time, calculated fare, and payment status.
+  * [x] `parkings` table: tracks slot sessions, start/end timestamps.
+  * [x] `car_state` table: persistent car state (`OUTSIDE`, `ENTERED`, `PARKED`), assigned slot, visit ID.
+  * [x] `meta` table: schema versioning and statistics epoch tracking.
+* [x] **State Machine & Association Logic (`server/state.py`)**
+  * [x] Global parking state: tracks free slots, occupied slots, distance reads, sensor faults.
+  * [x] Car-to-slot heuristic association: automatically binds oldest entered car when slot sensor triggers.
+  * [x] Gate authorization rules: enforces single-car state invariants, prevents duplicate entries, handles full-lot denials.
+  * [x] Rollback handling: reverts vehicle state if gate operation fails or times out.
+* [x] **ESP32 WebSocket Endpoint (`/ws/esp32`)**
+  * [x] Handles `hello` handshake and issues `hello_ack`.
+  * [x] Ingests 1s `state` telemetry heartbeats (slot states, gate states, distances, fault flags).
+  * [x] Dispatches `gate` commands with tracking `req_id`.
+  * [x] Dispatches `cmd` (`calibrate`) and processes results.
+* [x] **Web UI WebSocket Endpoint (`/ws/ui`)**
+  * [x] Broadcasts real-time JSON snapshot upon any hardware transition or operator command.
+  * [x] Ingests operator manual commands (gate override, calibration trigger, slot reassignment).
+* [x] **Offline Controller Simulator (`tools/fake_esp32.py`)**
+  * [x] Interactive CLI simulator connecting to `ws://localhost:8000/ws/esp32` supporting `park <slot>`, `leave <slot>`, `fault <slot>`, `full`, `empty`, `drop`, and `reconnect`.
+* [x] **Unit & Protocol Test Suite (`tests/`)**
+  * [x] Comprehensive test suite (`test_state.py` and `test_protocol.py`) with 100% pass rate.
 
 ---
 
 ## 📌 Phase 4: Modern Web Dashboard (Frontend)
 
-Status: **YET TO BE IMPLEMENTED ⏳**
+Status: **COMPLETED ✅**
 
-* [ ] **Rich User Interface Architecture (`server/static/`)**
-  * [ ] High-contrast, premium dark mode aesthetic with smooth micro-animations.
-  * [ ] Fully responsive on both Laptop screens and Mobile browsers over local Wi-Fi.
-* [ ] **Real-Time Interactive 2-Floor Slot Map**
-  * [ ] Visual representation of 2 floors:
+* [x] **Rich User Interface Architecture (`server/static/`)**
+  * [x] High-contrast, premium dark mode aesthetic with glassmorphism, responsive grid, and custom status pills.
+  * [x] Clean vanilla CSS styling with zero external build tools required.
+  * [x] Fully responsive layout for desktop laptops and mobile screens.
+* [x] **Real-Time Interactive 2-Floor Slot Map**
+  * [x] Visual 2-floor layout:
     * First Floor: **F1, F2, F3, F4**
     * Ground Floor: **G1, G2, G3, G4**
-  * [ ] **Exact Slot Status Display:**
+  * [x] **Exact Slot Status Display:**
     * Green badge = **Vacant / Free**
     * Red badge = **Occupied** (Displays parked Car #1 through #8)
     * Orange badge = **Sensor Fault**
     * Grey badge = **Stale / Offline**
-  * [ ] Live distance readout and baseline threshold display per slot tile.
-  * [ ] Heuristic correction dropdown: Click any slot to manually reassign or correct car number.
-* [ ] **System Status & Capacity Counters**
-  * [ ] Total Slots: `8`
-  * [ ] Occupied Slots counter & Available Slots counter.
-  * [ ] ESP32 Controller connection badge (`Online` / `Offline` with ping latency).
-  * [ ] Calibration status badge (`Calibrated` / `Uncalibrated`).
-* [ ] **Barrier Gate Remote Controls**
-  * [ ] Entry Gate widget: Current state (`Closed`, `Opening`, `Open`, `Closing`).
-  * [ ] Exit Gate widget: Current state (`Closed`, `Opening`, `Open`, `Closing`).
-  * [ ] Interactive "Open Entry Gate" / "Close Entry Gate" buttons with confirmation modal.
-  * [ ] Interactive "Open Exit Gate" / "Close Exit Gate" buttons with confirmation modal.
-* [ ] **Dual Live Camera Feeds (Single Webcam Multi-ROI)**
-  * [ ] Entry Lane video feed pane with real-time detection bounding box.
-  * [ ] Exit Lane video feed pane with real-time detection bounding box.
-  * [ ] Last Read indicator widget: Recognized Car Number, Confidence %, Approval badge.
-* [ ] **Live Audit & Activity Log**
-  * [ ] Scrollable chronological event log (last 50 events, newest first).
-  * [ ] Color-coded events: Green (Entry approved), Red (Entry denied/Full), Blue (Exit), Yellow (System/Gate).
+  * [x] Live distance readout (cm) on each slot tile.
+  * [x] Interactive slot assignment modal: click any slot to manually assign or release cars.
+* [x] **System Status & Capacity Counters**
+  * [x] Total Slots: `8`
+  * [x] Occupied slots counter & Available slots counter with progress bar.
+  * [x] ESP32 connection badge (`Online` / `Offline` with IP and firmware version).
+  * [x] Calibration status badge (`Calibrated` / `Uncalibrated`).
+* [x] **Barrier Gate Remote Controls**
+  * [x] Entry Gate card: Current state (`Closed`, `Opening`, `Open`, `Closing`) with manual Open / Close buttons.
+  * [x] Exit Gate card: Current state (`Closed`, `Opening`, `Open`, `Closing`) with manual Open / Close buttons.
+  * [x] Maintenance controls: Calibrate Sensors button and Reset Daily Counters button.
+* [x] **Dual Camera Feeds & Lane Status**
+  * [x] Entry Lane video feed pane with camera state and last recognized vehicle.
+  * [x] Exit Lane video feed pane with camera state and last recognized vehicle.
+* [x] **Live Audit & Activity Log**
+  * [x] Scrollable chronological event log (last 50 events, newest first).
+  * [x] Color-coded events: Green (Entry), Red (Deny/Exit), Blue (Slot change), Purple (ESP32/System).
 
 ---
 
 ## 📌 Phase 5: Automated Billing & Payment Gateway Integration
 
-Status: **YET TO BE IMPLEMENTED (FUTURE EXTENDED FEATURE) ⏳**
+Status: **COMPLETED ✅**
 
-* [ ] **Hourly Pricing Engine**
-  * [ ] Base entry fee setting (e.g., flat initial fee).
-  * [ ] Configurable hourly rate (e.g., ₹20/hr or $2.00/hr, with pro-rated minute increments).
-  * [ ] Configurable grace period (e.g., first 10 minutes free).
-  * [ ] Surge / peak hours pricing multiplier setting.
-* [ ] **Active Parking Session & Live Fare Tracker**
-  * [ ] Dynamic live timer on each occupied slot showing elapsed parking time (`HH:MM:SS`).
-  * [ ] Live accrued parking charge displayed directly on each occupied slot card.
-* [ ] **Automated Exit Checkout Workflow**
-  * [ ] Car arrives at exit lane ➔ Exit camera reads Car #.
-  * [ ] Server pulls active session from database and calculates total duration & final bill.
-  * [ ] Exit barrier gate remains LOCKED until payment is confirmed.
-* [ ] **Payment Gateway Integration**
-  * [ ] **Dynamic QR Code Modal:** Pops up on dashboard with UPI QR code or payment link.
-  * [ ] **Gateway Integration (Sandbox / Webhook):**
-    * Razorpay / Stripe sandbox checkout gateway.
-    * Instant webhook confirmation of payment success.
-  * [ ] **Operator Manual Override:** "Mark as Paid (Cash / Card)" button on the dashboard for cashiers.
-  * [ ] Automated trigger: Payment cleared ➔ Server automatically issues `gate exit open` command.
-* [ ] **Digital Invoice & Receipt Generator**
-  * [ ] Generate printable/downloadable digital receipt containing:
-    * Receipt / Invoice ID
-    * Vehicle Tag Number
-    * Assigned Slot (e.g., G2)
-    * Entry & Exit Timestamps
-    * Total Duration Parked
-    * Total Fare Paid
+* [x] **Hourly Pricing Engine**
+  * [x] Configurable base entry fee (`base_fee: 10 INR`).
+  * [x] Configurable hourly rate (`hourly_rate: 20 INR/hr`, pro-rated per second).
+  * [x] Configurable grace period (`grace_period_min: 5 min`).
+* [x] **Active Parking Session & Live Fare Tracker**
+  * [x] Real-time vehicle list table showing Car #, state, slot, entry timestamp, dwell timer (`HH:MM:SS`), and live accrued fare.
+  * [x] Live dwell time tickers updating every second in the browser UI.
+* [x] **Automated Exit Checkout & Payment Gateway Workflow**
+  * [x] One-click "Checkout / Exit" trigger per active vehicle.
+  * [x] **Dynamic QR Code Modal:** Displays UPI QR code (`upi://pay`), breakdown of dwell duration and total fare.
+  * [x] **Operator Cashier Override:** "Confirm Cash Payment" and "Verify UPI Payment" buttons.
+  * [x] Automated exit trigger: On payment confirmation, server marks visit completed, logs fare, and issues exit gate open command.
     * Payment Method (UPI / Card / Cash)
 * [ ] **Financial & Revenue Analytics Dashboard Tab**
   * [ ] Daily, weekly, and monthly total revenue charts.

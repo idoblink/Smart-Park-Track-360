@@ -13,9 +13,6 @@
 * **3V3 Pin** ➔ Breadboard **3.3V Logic Rail**
 * **GND Pin** ➔ Breadboard **Common Ground Bus (GND)**
 
-### Power Rail Smoothing Capacitor
-* Electrolytic Capacitor (470µF to 1000µF) Positive leg (longer leg, +) ➔ Breadboard **5V Power Rail**
-* Electrolytic Capacitor Negative leg (shorter leg with stripe, -) ➔ Breadboard **Common Ground Bus (GND)**
 
 ---
 

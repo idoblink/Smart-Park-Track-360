@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Operations Console | ParkTrack 360</title>
+  <meta name="description" content="Authorized operator console for barrier gate overrides, sensor calibration, and telemetries.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body style="background-color: #070707; min-height: 100vh;">
+
+  <!-- Admin Header -->
+  <header class="navbar" style="background: rgba(12, 12, 12, 0.95);">
+    <div class="container nav-container">
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <div class="brand-icon" style="border-color: #38bdf8; color: #38bdf8;">⚙️</div>
+        <div>
+          <div class="brand-title" style="font-size: 1.6rem;">PARKTRACK 360</div>
+          <span style="font-family: var(--font-mono); font-size: 0.65rem; font-weight: 800; color: #38bdf8; letter-spacing: 0.15em;">OPERATOR ADMIN CONSOLE</span>
+        </div>
+      </div>
+
+      <!-- Live ESP32 Link Health Status -->
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; background: #000; border: 1px solid var(--border-subtle); padding: 0.35rem 0.85rem; border-radius: var(--radius-full); font-family: var(--font-mono); font-size: 0.72rem;">
+          <span class="pulse-dot" id="esp32Dot"></span>
+          <span id="esp32StatusText">ESP32: Checking...</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; background: #000; border: 1px solid var(--border-subtle); padding: 0.35rem 0.85rem; border-radius: var(--radius-full); font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted);" id="esp32Details">
+          IP: -- • FW: --
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <a href="/" class="btn btn-dark btn-sm" target="_blank" title="View Public Driver Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+          <span>User Site</span>
+        </a>
+        <button class="btn btn-outline-gold btn-sm" id="btnLogout">
+          <span>Logout</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding-top: 2.5rem; padding-bottom: 5rem;">
+
+    <!-- Row 1: Gate Controls & Maintenance Actions -->
+    <div class="admin-grid">
+      
+      <!-- Entry Gate Card -->
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div class="admin-card-title">ENTRY BOOM BARRIER</div>
+          <span class="slot-status-pill vacant" id="entryGateBadge">CLOSED</span>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+          Controls servo barrier gate located at facility entrance lane.
+        </p>
+        <div style="display: flex; gap: 0.75rem;">
+          <button class="btn btn-white" style="flex: 1;" id="btnOpenEntryGate">
+            <span>Open Entry (5s)</span>
+          </button>
+          <button class="btn btn-dark" style="flex: 1;" id="btnCloseEntryGate">
+            <span>Force Close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Exit Gate Card -->
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div class="admin-card-title">EXIT BOOM BARRIER</div>
+          <span class="slot-status-pill vacant" id="exitGateBadge">CLOSED</span>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+          Controls servo barrier gate located at facility departure lane.
+        </p>
+        <div style="display: flex; gap: 0.75rem;">
+          <button class="btn btn-white" style="flex: 1;" id="btnOpenExitGate">
+            <span>Open Exit (5s)</span>
+          </button>
+          <button class="btn btn-dark" style="flex: 1;" id="btnCloseExitGate">
+            <span>Force Close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Hardware Maintenance Card -->
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div class="admin-card-title">SYSTEM MAINTENANCE</div>
+          <span class="slot-status-pill" id="calBadge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">CALIBRATED</span>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+          Calibrate ultrasonic distance thresholds with bays empty.
+        </p>
+        <div style="display: flex; gap: 0.75rem;">
+          <button class="btn btn-outline-gold" style="flex: 1;" id="btnTriggerCalibrate">
+            <span>Calibrate Sensors</span>
+          </button>
+          <button class="btn btn-dark" style="flex: 1;" id="btnResetCounters">
+            <span>Reset Counters</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Row 2: Interactive 2-Floor Slot Assignment Matrix -->
+    <div class="admin-card" style="margin-bottom: 2rem;">
+      <div class="admin-card-header">
+        <div>
+          <div class="admin-card-title">SLOT MATRIX & OPERATOR OVERRIDE</div>
+          <span style="font-size: 0.78rem; color: var(--text-muted);">
+            Click any bay to manually reassign or clear vehicle tag.
+          </span>
+        </div>
+        <div style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--gold-primary);" id="adminOccupancySummary">
+          Total: 8 • Occ: -- • Free: --
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem;" id="adminSlotsGrid">
+        <!-- Rendered via JavaScript -->
+      </div>
+    </div>
+
+    <!-- Row 3: Active Vehicles & Cashier Table + Live Event Audit Stream -->
+    <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 1.5rem; align-items: flex-start;">
+      
+      <!-- Vehicles & Cashier Settlement Table -->
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div class="admin-card-title">ACTIVE VEHICLES & CASHIER DESK</div>
+          <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted);">TOY CARS #1 TO #8</span>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-family: var(--font-mono);">
+                <th style="padding: 0.6rem 0.5rem;">CAR</th>
+                <th style="padding: 0.6rem 0.5rem;">STATE</th>
+                <th style="padding: 0.6rem 0.5rem;">SLOT</th>
+                <th style="padding: 0.6rem 0.5rem;">DWELL</th>
+                <th style="padding: 0.6rem 0.5rem;">FARE</th>
+                <th style="padding: 0.6rem 0.5rem; text-align: right;">ACTION</th>
+              </tr>
+            </thead>
+            <tbody id="adminCarsTableBody">
+              <!-- Rendered via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Live Event Audit Feed -->
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div class="admin-card-title">REAL-TIME AUDIT LOG</div>
+          <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--gold-light);">LAST 50 EVENTS</span>
+        </div>
+        <div class="audit-feed" id="adminAuditFeed">
+          <div style="color: var(--text-muted); text-align: center; padding: 1rem;">Connecting to event stream...</div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ========================================================================
+       Modal: Manual Slot Assignment
+       ======================================================================== -->
+  <div class="modal-overlay" id="modalAssign">
+    <div class="modal-box">
+      <button class="modal-close" id="btnCloseAssignModal">&times;</button>
+      <span class="admin-header-pill" style="margin-bottom: 0.5rem;">OPERATOR OVERRIDE</span>
+      <h3 class="font-bebas" style="font-size: 2rem; color: #fff; margin-bottom: 0.5rem;" id="modalAssignSlotTitle">
+        ASSIGN SLOT G1
+      </h3>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+        Manually assign a vehicle number to this bay or release it to Vacant.
+      </p>
+
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">
+          Vehicle Association
+        </label>
+        <select id="modalAssignCarSelect" class="form-input" style="border-radius: var(--radius-sm); padding: 0.75rem 1rem;">
+          <option value="">-- Clear / Mark Vacant --</option>
+          <option value="1">Car #1</option>
+          <option value="2">Car #2</option>
+          <option value="3">Car #3</option>
+          <option value="4">Car #4</option>
+          <option value="5">Car #5</option>
+          <option value="6">Car #6</option>
+          <option value="7">Car #7</option>
+          <option value="8">Car #8</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <button class="btn btn-primary" id="btnSaveAssignment" style="flex: 1;">
+          <span>Apply Change</span>
+        </button>
+        <button class="btn btn-dark" id="btnCancelAssignment" style="flex: 1;">
+          <span>Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <script src="/static/admin.js"></script>
+</body>
+</html>
