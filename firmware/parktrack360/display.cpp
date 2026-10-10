@@ -15,7 +15,8 @@
 
 namespace Display {
 
-    static LiquidCrystal_I2C lcd(ADDR_LCD, LCD_COLS, LCD_ROWS);
+    static LiquidCrystal_I2C* _lcd = nullptr;
+    static uint8_t _lcdAddr = ADDR_LCD;
 
     // Cache previous display content to avoid redraws
     static char _prevLine0[LCD_COLS + 1] = "";
@@ -23,17 +24,36 @@ namespace Display {
     static bool _forceRedraw = true;
 
     static void writeLine(uint8_t row, const char* text) {
-        lcd.setCursor(0, row);
+        if (!_lcd) return;
+        _lcd->setCursor(0, row);
         // Pad to LCD_COLS to clear previous content
         char buf[LCD_COLS + 1];
         snprintf(buf, sizeof(buf), "%-16s", text);
-        lcd.print(buf);
+        _lcd->print(buf);
     }
 
     void begin() {
-        lcd.init();
-        lcd.backlight();
-        lcd.clear();
+        // Probe whether LCD is at 0x27 (PCF8574T) or 0x3F (PCF8574AT)
+        _lcdAddr = ADDR_LCD;
+        Wire.beginTransmission(0x27);
+        if (Wire.endTransmission() != 0) {
+            // 0x27 did not answer, probe 0x3F
+            Wire.beginTransmission(0x3F);
+            if (Wire.endTransmission() == 0) {
+                _lcdAddr = 0x3F;
+                Serial.println(F("[Display] LCD auto-detected at address 0x3F (PCF8574A chip)!"));
+            } else {
+                Serial.println(F("[Display] WARNING: LCD not responding at 0x27 or 0x3F! Check SDA/SCL wiring."));
+            }
+        } else {
+            Serial.println(F("[Display] LCD detected at default address 0x27."));
+        }
+
+        if (_lcd) delete _lcd;
+        _lcd = new LiquidCrystal_I2C(_lcdAddr, LCD_COLS, LCD_ROWS);
+        _lcd->init();
+        _lcd->backlight();
+        _lcd->clear();
         writeLine(0, " SMART PARKING");
         writeLine(1, "  Starting...");
         _forceRedraw = true;

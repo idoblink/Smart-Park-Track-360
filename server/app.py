@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from server.state import ParkingState
 from server import db
+from server.serial_comm import ESP32SerialManager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("parktrack")
@@ -29,17 +30,88 @@ state = ParkingState()
 esp32_socket: Optional[WebSocket] = None
 ui_sockets: Set[WebSocket] = set()
 
-# Helper to send message to ESP32
+main_loop: Optional[asyncio.AbstractEventLoop] = None
+serial_mgr: Optional[ESP32SerialManager] = None
+
+# Helper to dispatch ESP32 message from either Serial or WebSocket
+def process_esp32_message(data: Dict[str, Any]):
+    global main_loop
+    t = data.get("t")
+    if t == "hello":
+        state.handle_esp32_hello(
+            fw=data.get("fw", "1.1.0"),
+            ip=data.get("ip", "usb_serial"),
+            calibrated=data.get("calibrated", False),
+            reset_reason=data.get("reset_reason", "power_on")
+        )
+        if main_loop and main_loop.is_running():
+            asyncio.run_coroutine_threadsafe(broadcast_ui_snapshot(), main_loop)
+
+    elif t == "state":
+        state.handle_esp32_state(
+            slots_data=data.get("slots", []),
+            dist_data=data.get("dist", []),
+            fault_data=data.get("fault", []),
+            entry_gate=data.get("entry", "closed"),
+            exit_gate=data.get("exit", "closed"),
+            calibrated=data.get("calibrated", False),
+            free_count=data.get("free", 8),
+            uptime=data.get("uptime", 0)
+        )
+        if main_loop and main_loop.is_running():
+            asyncio.run_coroutine_threadsafe(broadcast_ui_snapshot(), main_loop)
+
+    elif t == "gate_result":
+        gate = data.get("gate")
+        ok = data.get("ok", False)
+        reason = data.get("reason", "unknown")
+        req_id = data.get("req_id", "")
+        logger.info(f"Gate result: {gate} ok={ok} reason={reason} req_id={req_id}")
+        
+        if gate == "entry" and not ok and req_id.startswith("car_"):
+            try:
+                car_id = int(req_id.split("_")[1])
+                state.rollback_entry(car_id, reason)
+                if main_loop and main_loop.is_running():
+                    asyncio.run_coroutine_threadsafe(broadcast_ui_snapshot(), main_loop)
+            except Exception as e:
+                logger.error(f"Rollback parsing error: {e}")
+
+    elif t == "cal_result":
+        ok = data.get("ok", False)
+        state.esp32_calibrated = ok
+        db.log_event("calibrate", detail="success" if ok else "failed")
+        if main_loop and main_loop.is_running():
+            asyncio.run_coroutine_threadsafe(broadcast_ui_snapshot(), main_loop)
+
+    elif t == "cal_progress":
+        pass
+
+def on_serial_status_change(connected: bool):
+    global main_loop
+    state.esp32_online = connected
+    if connected:
+        state.last_esp32_msg_ts = time.time()
+    if main_loop and main_loop.is_running():
+        asyncio.run_coroutine_threadsafe(broadcast_ui_snapshot(), main_loop)
+
+# Helper to send message to ESP32 (via USB Serial and/or WebSocket)
 async def send_to_esp32(payload: Dict[str, Any]) -> bool:
-    global esp32_socket
+    global esp32_socket, serial_mgr
+    sent_serial = False
+    if serial_mgr and serial_mgr.connected:
+        sent_serial = serial_mgr.send(payload)
+
+    sent_ws = False
     if esp32_socket:
         try:
             await esp32_socket.send_text(json.dumps(payload))
-            return True
+            sent_ws = True
         except Exception as e:
-            logger.error(f"Failed to send to ESP32: {e}")
+            logger.error(f"Failed to send to ESP32 socket: {e}")
             esp32_socket = None
-    return False
+
+    return sent_serial or sent_ws
 
 # Broadcast state snapshot to all connected UI browser clients
 async def broadcast_ui_snapshot():
@@ -66,17 +138,31 @@ async def background_heartbeat_loop():
             if was_online != state.esp32_online:
                 await broadcast_ui_snapshot()
             
-            # Send server heartbeat to ESP32 if connected
-            if esp32_socket and state.esp32_online:
-                await send_to_esp32({"t": "hb"})
+            # Send server heartbeat to ESP32
+            await send_to_esp32({"t": "hb"})
         except Exception as e:
             logger.error(f"Error in background heartbeat loop: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(background_heartbeat_loop())
+    global main_loop, serial_mgr
+    main_loop = asyncio.get_running_loop()
+
+    # Start USB Serial worker for direct cable connection
+    port = state.config.get("esp32", {}).get("port", "auto")
+    baud = state.config.get("esp32", {}).get("baud", 115200)
+    serial_mgr = ESP32SerialManager(
+        port=port, baudrate=baud,
+        on_json=process_esp32_message,
+        on_status_change=on_serial_status_change
+    )
+    serial_mgr.start()
+
+    hb_task = asyncio.create_task(background_heartbeat_loop())
     yield
-    task.cancel()
+    hb_task.cancel()
+    if serial_mgr:
+        serial_mgr.stop()
 
 app = FastAPI(title="ParkTrack 360 API", version="1.1.0", lifespan=lifespan)
 
@@ -85,8 +171,15 @@ app = FastAPI(title="ParkTrack 360 API", version="1.1.0", lifespan=lifespan)
 @app.websocket("/ws/esp32")
 async def websocket_esp32_endpoint(websocket: WebSocket):
     global esp32_socket
+    if esp32_socket and esp32_socket != websocket:
+        try:
+            await esp32_socket.close()
+        except Exception:
+            pass
     await websocket.accept()
     esp32_socket = websocket
+    state.esp32_online = True
+    state.last_esp32_msg_ts = time.time()
     logger.info("ESP32 controller connected via WebSocket")
 
     try:
@@ -98,54 +191,7 @@ async def websocket_esp32_endpoint(websocket: WebSocket):
                 logger.warning(f"Invalid JSON from ESP32: {text}")
                 continue
 
-            t = data.get("t")
-            if t == "hello":
-                state.handle_esp32_hello(
-                    fw=data.get("fw", "1.1.0"),
-                    ip=data.get("ip", "0.0.0.0"),
-                    calibrated=data.get("calibrated", False),
-                    reset_reason=data.get("reset_reason", "unknown")
-                )
-                await websocket.send_text(json.dumps({"t": "hello_ack"}))
-                await broadcast_ui_snapshot()
-
-            elif t == "state":
-                state.handle_esp32_state(
-                    slots_data=data.get("slots", []),
-                    dist_data=data.get("dist", []),
-                    fault_data=data.get("fault", []),
-                    entry_gate=data.get("entry", "closed"),
-                    exit_gate=data.get("exit", "closed"),
-                    calibrated=data.get("calibrated", False),
-                    free_count=data.get("free", 8),
-                    uptime=data.get("uptime", 0)
-                )
-                await broadcast_ui_snapshot()
-
-            elif t == "gate_result":
-                gate = data.get("gate")
-                ok = data.get("ok", False)
-                reason = data.get("reason", "unknown")
-                req_id = data.get("req_id", "")
-                logger.info(f"Gate result: {gate} ok={ok} reason={reason} req_id={req_id}")
-                
-                # Check if this was an entry authorization that needs rollback
-                if gate == "entry" and not ok and req_id.startswith("car_"):
-                    try:
-                        car_id = int(req_id.split("_")[1])
-                        state.rollback_entry(car_id, reason)
-                        await broadcast_ui_snapshot()
-                    except Exception as e:
-                        logger.error(f"Rollback parsing error: {e}")
-
-            elif t == "cal_result":
-                ok = data.get("ok", False)
-                state.esp32_calibrated = ok
-                db.log_event("calibrate", detail="success" if ok else "failed")
-                await broadcast_ui_snapshot()
-
-            elif t == "cal_progress":
-                pass
+            process_esp32_message(data)
 
     except WebSocketDisconnect:
         logger.info("ESP32 disconnected")

@@ -7,14 +7,14 @@ This guide covers the **active integration stage**: full wiring is completed, 2 
 ## 📋 Current System State Overview
 
 * **Wiring:** 100% complete according to [complete_wiring.md](file:///c:/Users/Hades/Documents/Smart-Park-Track-360/complete_wiring.md).
-* **ESP32:** Connected via USB on **`COM3`** (`Silicon Labs CP210x`).
+* **ESP32 Connection:** Direct USB Serial cable on **`COM3`** (115200 baud, pure NDJSON protocol — **Zero Wi-Fi needed**).
 * **Cameras:** 2 USB webcams connected and verified:
   * **Entry Lane:** Camera Index **`1`**
   * **Exit Lane:** Camera Index **`2`**
   * *(Laptop Integrated Camera: Index `0`)*
-* **Network & Host Server:**
-  * Host Server IP: **`192.168.29.37`** (Port: `8000`)
-  * Wi-Fi SSID configured in [firmware/parktrack360/secrets.h](file:///c:/Users/Hades/Documents/Smart-Park-Track-360/firmware/parktrack360/secrets.h).
+* **Host Server:**
+  * Local Host: [http://localhost:8000](http://localhost:8000)
+  * Direct bidirectional USB Serial link auto-connects to ESP32 on `COM3`.
 * **Pricing & Rules:**
   * 100% Autonomous & Cashless (Zero Cash).
   * Flat **₹40** for the first hour (0–60 min), **+₹20/hr** for additional hours.
@@ -24,11 +24,11 @@ This guide covers the **active integration stage**: full wiring is completed, 2 
 ## ⚡ Stage 1: Upload Firmware to ESP32
 
 ### 1. Library Verification in Arduino IDE
-Ensure these 4 libraries are installed in Arduino IDE (**Tools ➔ Manage Libraries...**):
-1. **WebSockets** by *Markus Sattler*
-2. **ESP32Servo** by *Kevin Harrington*
-3. **LiquidCrystal_I2C** by *Frank de Brabander* (or *Marco Schwartz*)
-4. **ArduinoJson** by *Benoit Blanchon* (v7.x)
+With Wi-Fi removed, only **3 lightweight libraries** are needed in Arduino IDE (**Tools ➔ Manage Libraries...**):
+1. **ESP32Servo** by *Kevin Harrington*
+2. **LiquidCrystal_I2C** by *Frank de Brabander* (or *Marco Schwartz*)
+3. **ArduinoJson** by *Benoit Blanchon* (v7.x)
+*(Note: WebSockets is no longer needed!)*
 
 ### 2. Upload Firmware
 1. Open Arduino IDE.
@@ -44,6 +44,7 @@ Ensure these 4 libraries are installed in Arduino IDE (**Tools ➔ Manage Librar
    * The 16×2 LCD will display `CALIBRATION OK`.
    * All 8 slot LEDs will turn **GREEN**.
    * LCD will display `Occ: 0  Free: 8`.
+   * **Note:** Close the Arduino IDE Serial Monitor before starting the Python server so Python can access `COM3`.
 
 ---
 

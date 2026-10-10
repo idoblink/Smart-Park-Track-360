@@ -15,6 +15,9 @@ namespace SerialCmd {
     // Call in loop() to read and process serial input non-blockingly
     void update();
 
+    // Execute a command string directly
+    void execute(const char* cmd);
+
     // Print help text
     void printHelp();
 

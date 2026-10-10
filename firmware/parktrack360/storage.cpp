@@ -82,37 +82,4 @@ namespace Storage {
     uint16_t loadHoldMs(uint16_t defaultVal) {
         return _prefs.getUShort("hold", defaultVal);
     }
-
-    // --- Network ---
-    void saveSSID(const char* ssid) {
-        _prefs.putString("ssid", ssid);
-    }
-
-    String loadSSID(const char* defaultVal) {
-        return _prefs.getString("ssid", defaultVal);
-    }
-
-    void savePass(const char* pass) {
-        _prefs.putString("pass", pass);
-    }
-
-    String loadPass(const char* defaultVal) {
-        return _prefs.getString("pass", defaultVal);
-    }
-
-    void saveServerIP(const char* ip) {
-        _prefs.putString("srv_ip", ip);
-    }
-
-    String loadServerIP(const char* defaultVal) {
-        return _prefs.getString("srv_ip", defaultVal);
-    }
-
-    void saveServerPort(uint16_t port) {
-        _prefs.putUShort("srv_port", port);
-    }
-
-    uint16_t loadServerPort(uint16_t defaultVal) {
-        return _prefs.getUShort("srv_port", defaultVal);
-    }
 }

@@ -27,19 +27,33 @@ namespace LEDs {
     static unsigned long _blinkTimer = 0;
     static bool _blinkState = false;
 
-    // Write one byte to a PCF8574
-    static void writeByte(uint8_t addr, uint8_t val) {
+    // Write one byte to a PCF8574 and return true if ACKed
+    static bool writeByte(uint8_t addr, uint8_t val) {
         Wire.beginTransmission(addr);
         Wire.write(val);
-        Wire.endTransmission();
+        uint8_t err = Wire.endTransmission();
+        return (err == 0);
     }
 
     void begin() {
-        // All LEDs off
         _lastByte[0] = 0xFF;
         _lastByte[1] = 0xFF;
-        writeByte(_addr[0], 0xFF);
-        writeByte(_addr[1], 0xFF);
+
+        bool groundOk = writeByte(_addr[0], 0xFF);
+        bool firstOk  = writeByte(_addr[1], 0xFF);
+
+        if (groundOk) {
+            Serial.printf("[LEDs] Ground floor expander detected at 0x%02X.\n", _addr[0]);
+        } else {
+            Serial.printf("[LEDs] WARNING: Ground floor expander NOT responding at 0x%02X!\n", _addr[0]);
+        }
+
+        if (firstOk) {
+            Serial.printf("[LEDs] First floor expander detected at 0x%02X.\n", _addr[1]);
+        } else {
+            Serial.printf("[LEDs] WARNING: First floor expander NOT responding at 0x%02X!\n", _addr[1]);
+        }
+
         _blinkTimer = millis();
         _blinkState = false;
     }
@@ -109,7 +123,10 @@ namespace LEDs {
 
     void writeRaw(uint8_t floor, uint8_t value) {
         if (floor >= 2) return;
-        writeByte(_addr[floor], value);
+        bool ok = writeByte(_addr[floor], value);
+        if (!ok) {
+            Serial.printf("  [NACK] PCF8574 at 0x%02X did not respond!\n", _addr[floor]);
+        }
         _lastByte[floor] = value;
     }
 

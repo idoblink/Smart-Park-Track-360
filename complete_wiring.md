@@ -24,10 +24,11 @@
 
 ### 16x2 Character LCD Backpack (Address 0x27)
 * Hardware setup: All address pads A0, A1, A2 remain unbridged (factory default)
-* **VCC Pin** ➔ Breadboard **3.3V Logic Rail**
+* **VCC Pin** ➔ Breadboard **5V Power Rail** (HD44780 liquid crystal matrix requires 5V for text contrast; 3.3V powers the backlight but leaves text blank)
 * **GND Pin** ➔ Breadboard **Common Ground Bus (GND)**
 * **SDA Pin** ➔ ESP32 **GPIO 21**
 * **SCL Pin** ➔ ESP32 **GPIO 22**
+* **Contrast Trimpot** ➔ Adjust the small blue potentiometer on the back of the LCD with a screwdriver until text is sharp!
 
 ### PCF8574 Module #2 — Ground Floor Slot LEDs (Address 0x26)
 * Hardware setup: Solder bridge closed on **A0** pad only (A1 and A2 open)
@@ -48,34 +49,34 @@
 ## 3. Ground Floor Slot LEDs (PCF8574 at 0x26)
 
 ### Slot G1 LEDs
-* **G1 Green LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **G1 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G1 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **G1 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P0**
-* **G1 Red LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **G1 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G1 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **G1 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P1**
 
 ### Slot G2 LEDs
-* **G2 Green LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **G2 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G2 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **G2 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P2**
-* **G2 Red LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **G2 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G2 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **G2 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P3**
 
 ### Slot G3 LEDs
-* **G3 Green LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **G3 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G3 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **G3 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P4**
-* **G3 Red LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **G3 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G3 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **G3 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P5**
 
 ### Slot G4 LEDs
-* **G4 Green LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **G4 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G4 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **G4 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P6**
-* **G4 Red LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **G4 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G4 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **G4 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P7**
 
@@ -84,34 +85,34 @@
 ## 4. First Floor Slot LEDs (PCF8574 at 0x25)
 
 ### Slot F1 LEDs
-* **F1 Green LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **F1 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F1 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **F1 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P0**
-* **F1 Red LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **F1 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F1 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **F1 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P1**
 
 ### Slot F2 LEDs
-* **F2 Green LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **F2 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F2 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **F2 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P2**
-* **F2 Red LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **F2 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F2 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **F2 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P3**
 
 ### Slot F3 LEDs
-* **F3 Green LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **F3 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F3 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **F3 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P4**
-* **F3 Red LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **F3 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F3 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **F3 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P5**
 
 ### Slot F4 LEDs
-* **F4 Green LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **F4 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F4 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **F4 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P6**
-* **F4 Red LED Anode (Long leg, +)** ➔ Breadboard **3.3V Logic Rail**
+* **F4 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F4 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
 * **F4 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P7**
 

@@ -5,7 +5,9 @@ server:
 timezone: Asia/Kolkata
 
 esp32:
-  stale_after_s: 3
+  port: auto                  # Auto-detects COM3 or CP210x/CH340 USB Serial
+  baud: 115200
+  stale_after_s: 5
   heartbeat_s: 1
 
 gate:

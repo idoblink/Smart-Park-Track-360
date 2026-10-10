@@ -47,14 +47,14 @@ static const uint8_t ECHO_PINS[NUM_SLOTS] = {34, 35, 36, 39, 18,  5, 17, 16};
 #define LCD_ROWS  2
 
 // ---- Sensing ------------------------------------------------------------
-#define ECHO_TIMEOUT_US       8000     // ~137 cm max range
+#define ECHO_TIMEOUT_US       12000    // ~205 cm max range (prevents timeouts on empty slots)
 #define SENSOR_GAP_MS         15       // min gap between consecutive sensors
 #define MEDIAN_WINDOW         3        // sliding median window per slot
 #define DEBOUNCE_ROUNDS       3        // consecutive rounds before state change
 #define MIN_VALID_CM          2.0f     // readings below this are invalid
 #define OCCUPIED_MARGIN_CM    1.5f     // [NVS] baseline – margin = occupied threshold
 #define CAL_ROUNDS            15       // calibration: number of rounds
-#define CAL_MAX_SPREAD_CM     1.0f     // max spread allowed during calibration
+#define CAL_MAX_SPREAD_CM     6.0f     // max spread allowed during calibration (accommodates normal acoustic jitter)
 #define FAULT_ROUNDS          10       // consecutive invalid → fault
 
 // ---- Gates (servo) [NVS overridable] ------------------------------------
@@ -68,8 +68,7 @@ static const uint8_t ECHO_PINS[NUM_SLOTS] = {34, 35, 36, 39, 18,  5, 17, 16};
 #define GATE_HOLD_MIN_MS   1000        // server-clamped minimum
 #define GATE_HOLD_MAX_MS   15000       // server-clamped maximum
 
-// ---- Network [NVS overridable] ------------------------------------------
+// ---- Host Link (USB Serial 115200 baud) --------------------------------
 #define HEARTBEAT_MS        1000       // send state every 1 s
-#define LINK_TIMEOUT_MS     3000       // no server msg for 3 s → link lost
-#define WS_RECONNECT_MS     2000       // WebSocket reconnect interval
-#define DEFAULT_SERVER_PORT 8000
+#define LINK_TIMEOUT_MS     5000       // no server heartbeat for 5 s → link lost
+

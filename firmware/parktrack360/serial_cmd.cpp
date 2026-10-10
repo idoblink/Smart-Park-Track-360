@@ -10,18 +10,13 @@
 #include "gates.h"
 #include "leds.h"
 #include "display.h"
-#include "net.h"
+#include "comm.h"
 #include "storage.h"
 #include <Wire.h>
 
 namespace SerialCmd {
 
-    static char _rxBuffer[128];
-    static uint8_t _rxIndex = 0;
-
     void begin() {
-        _rxIndex = 0;
-        _rxBuffer[0] = '\0';
     }
 
     void printHelp() {
@@ -33,8 +28,6 @@ namespace SerialCmd {
         Serial.println(F("  gate entry close          - Close entry gate immediately"));
         Serial.println(F("  gate exit open            - Open exit gate (manual hold)"));
         Serial.println(F("  gate exit close           - Close exit gate immediately"));
-        Serial.println(F("  wifi <ssid> <password>    - Save Wi-Fi credentials to NVS and reconnect"));
-        Serial.println(F("  server <ip> <port>        - Save server address to NVS and reconnect"));
         Serial.println(F("  margin <cm>               - Set occupied detection margin (e.g. margin 1.5)"));
         Serial.println(F("  angles <closed> <open>    - Set servo angles in degrees (e.g. angles 0 90)"));
         Serial.println(F("  hold <ms>                 - Set gate hold time in ms (e.g. hold 5000)"));
@@ -88,11 +81,9 @@ namespace SerialCmd {
         Serial.printf("Settings:   Closed=%d°, Open=%d°, Hold=%d ms\n",
                       Gates::getClosedAngle(), Gates::getOpenAngle(), Gates::getHoldMs());
 
-        Serial.println(F("\n--- Network ---"));
-        Serial.printf("Wi-Fi:   %s (IP: %s)\n",
-                      Net::isWifiConnected() ? "CONNECTED" : "DISCONNECTED",
-                      Net::isWifiConnected() ? Net::getIP().c_str() : "0.0.0.0");
-        Serial.printf("Server:  %s\n", Net::isLinkUp() ? "LINK UP" : "LINK DOWN");
+        Serial.println(F("\n--- Host Connection ---"));
+        Serial.printf("USB Serial Link: %s (115200 baud)\n",
+                      Comm::isLinkUp() ? "ONLINE (Active with Host Server)" : "STANDBY (Waiting for server ping)");
         Serial.println(F("============================================================\n"));
     }
 
@@ -113,24 +104,30 @@ namespace SerialCmd {
         Serial.printf("[I2C] Scan complete. %d device(s) found.\n\n", count);
     }
 
-    static void handleCommand(char* cmd) {
+    void execute(const char* inputCmd) {
+        if (!inputCmd) return;
+        char cmd[128];
+        strncpy(cmd, inputCmd, sizeof(cmd) - 1);
+        cmd[sizeof(cmd) - 1] = '\0';
+
         // Strip leading whitespace
-        while (*cmd == ' ' || *cmd == '\t') cmd++;
-        if (*cmd == '\0') return;
+        char* p = cmd;
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '\0') return;
 
         // Strip trailing whitespace / cr / lf
-        int len = strlen(cmd);
-        while (len > 0 && (cmd[len - 1] == ' ' || cmd[len - 1] == '\r' || cmd[len - 1] == '\n')) {
-            cmd[--len] = '\0';
+        int len = strlen(p);
+        while (len > 0 && (p[len - 1] == ' ' || p[len - 1] == '\r' || p[len - 1] == '\n')) {
+            p[--len] = '\0';
         }
 
-        if (strcasecmp(cmd, "help") == 0) {
+        if (strcasecmp(p, "help") == 0) {
             printHelp();
 
-        } else if (strcasecmp(cmd, "status") == 0) {
+        } else if (strcasecmp(p, "status") == 0) {
             printStatus();
 
-        } else if (strcasecmp(cmd, "calibrate") == 0) {
+        } else if (strcasecmp(p, "calibrate") == 0) {
             Serial.println(F("\n[Calibration] Starting calibration. Keep all 8 slots empty!"));
             Display::showMessage("CALIBRATING...", "Keep slots empty");
             bool ok = Slots::calibrate([](uint8_t done, uint8_t total) {
@@ -146,10 +143,10 @@ namespace SerialCmd {
                 Display::showMessage("CALIB FAILED", "Check Serial");
             }
 
-        } else if (strncasecmp(cmd, "gate", 4) == 0) {
+        } else if (strncasecmp(p, "gate", 4) == 0) {
             char gName[16] = "";
             char action[16] = "";
-            if (sscanf(cmd, "%*s %15s %15s", gName, action) == 2) {
+            if (sscanf(p, "%*s %15s %15s", gName, action) == 2) {
                 GateId gid = (strcasecmp(gName, "entry") == 0) ? GATE_ENTRY : GATE_EXIT;
                 if (strcasecmp(action, "open") == 0) {
                     char reason[32] = "";
@@ -169,36 +166,18 @@ namespace SerialCmd {
                 Serial.println(F("Usage: gate <entry|exit> <open|close>"));
             }
 
-        } else if (strncasecmp(cmd, "wifi", 4) == 0) {
-            char ssid[64] = "";
-            char pass[64] = "";
-            if (sscanf(cmd, "%*s %63s %63s", ssid, pass) == 2) {
-                Net::setWifi(ssid, pass);
-            } else {
-                Serial.println(F("Usage: wifi <ssid> <password>"));
-            }
-
-        } else if (strncasecmp(cmd, "server", 6) == 0) {
-            char ip[64] = "";
-            int port = 0;
-            if (sscanf(cmd, "%*s %63s %d", ip, &port) == 2 && port > 0 && port <= 65535) {
-                Net::setServer(ip, (uint16_t)port);
-            } else {
-                Serial.println(F("Usage: server <ip> <port>"));
-            }
-
-        } else if (strncasecmp(cmd, "margin", 6) == 0) {
+        } else if (strncasecmp(p, "margin", 6) == 0) {
             float cm = 0.0f;
-            if (sscanf(cmd, "%*s %f", &cm) == 1 && cm > 0.0f) {
+            if (sscanf(p, "%*s %f", &cm) == 1 && cm > 0.0f) {
                 Slots::setMargin(cm);
                 Serial.printf("[Config] Margin updated to %.2f cm\n", cm);
             } else {
                 Serial.println(F("Usage: margin <cm> (e.g. margin 1.5)"));
             }
 
-        } else if (strncasecmp(cmd, "angles", 6) == 0) {
+        } else if (strncasecmp(p, "angles", 6) == 0) {
             int closed = 0, open = 0;
-            if (sscanf(cmd, "%*s %d %d", &closed, &open) == 2 &&
+            if (sscanf(p, "%*s %d %d", &closed, &open) == 2 &&
                 closed >= 0 && closed <= 180 && open >= 0 && open <= 180) {
                 Gates::setAngles((uint8_t)closed, (uint8_t)open);
                 Serial.printf("[Config] Gate angles updated: closed=%d°, open=%d°\n", closed, open);
@@ -206,43 +185,32 @@ namespace SerialCmd {
                 Serial.println(F("Usage: angles <closed> <open> (e.g. angles 0 90)"));
             }
 
-        } else if (strncasecmp(cmd, "hold", 4) == 0) {
+        } else if (strncasecmp(p, "hold", 4) == 0) {
             int ms = 0;
-            if (sscanf(cmd, "%*s %d", &ms) == 1 && ms >= 500 && ms <= 30000) {
+            if (sscanf(p, "%*s %d", &ms) == 1 && ms >= 500 && ms <= 30000) {
                 Gates::setHoldMs((uint16_t)ms);
                 Serial.printf("[Config] Gate hold time updated to %d ms\n", ms);
             } else {
                 Serial.println(F("Usage: hold <ms> (e.g. hold 5000)"));
             }
 
-        } else if (strcasecmp(cmd, "scan") == 0) {
+        } else if (strcasecmp(p, "scan") == 0) {
             executeScan();
 
-        } else if (strcasecmp(cmd, "ledtest") == 0) {
+        } else if (strcasecmp(p, "ledtest") == 0) {
             LEDs::walkTest();
 
-        } else if (strcasecmp(cmd, "reboot") == 0) {
+        } else if (strcasecmp(p, "reboot") == 0) {
             Serial.println(F("[System] Rebooting ESP32..."));
             delay(200);
             ESP.restart();
 
         } else {
-            Serial.printf("Unknown command: '%s'. Type 'help' for command list.\n", cmd);
+            Serial.printf("Unknown command: '%s'. Type 'help' for command list.\n", p);
         }
     }
 
     void update() {
-        while (Serial.available() > 0) {
-            char c = (char)Serial.read();
-            if (c == '\r' || c == '\n') {
-                if (_rxIndex > 0) {
-                    _rxBuffer[_rxIndex] = '\0';
-                    handleCommand(_rxBuffer);
-                    _rxIndex = 0;
-                }
-            } else if (_rxIndex < sizeof(_rxBuffer) - 1) {
-                _rxBuffer[_rxIndex++] = c;
-            }
-        }
+        // Serial reading is managed centrally by Comm::update()
     }
 }
