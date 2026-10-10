@@ -7,9 +7,9 @@ This guide provides beginner-friendly, step-by-step wiring instructions for usin
 ## ⚡ Live Operating Behavior (No Calibration Needed)
 
 The firmware is configured to operate immediately upon boot:
-* **Distance > 2.5 cm (Empty slot / background distance):**
+* **Distance > 5.0 cm (Empty slot / background distance):**
   - Corresponding slot LED turns **GREEN** (Vacant).
-* **Distance ≤ 2.5 cm (Hand or model vehicle placed in slot):**
+* **Distance ≤ 5.0 cm (Hand or model vehicle placed in slot):**
   - Corresponding slot LED turns **RED** (Occupied).
 * **16×2 LCD Screen:**
   - Line 0: ` SMART PARKING`

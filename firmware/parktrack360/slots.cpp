@@ -25,7 +25,7 @@ namespace Slots {
         float dist = Sensors::getDistance(slot);
         if (dist < 0) return SLOT_UNKNOWN;  // invalid reading / timeout
 
-        // Hand or vehicle within range (nominal 2.5 cm, threshold <= OCCUPIED_THRESHOLD_CM) is OCCUPIED
+        // Hand or vehicle within range (threshold <= OCCUPIED_THRESHOLD_CM, 5.0 cm) is OCCUPIED
         if (dist <= OCCUPIED_THRESHOLD_CM) {
             return SLOT_OCCUPIED;
         }
@@ -60,7 +60,7 @@ namespace Slots {
                 Serial.printf("  %s: %.1f cm\n", SLOT_NAMES[i], _baseline[i]);
             }
         } else {
-            Serial.println(F("[Slots] Running direct proximity mode (<= 2.5 cm = OCCUPIED, > 2.5 cm = VACANT)"));
+            Serial.println(F("[Slots] Running direct proximity mode (<= 5.0 cm = OCCUPIED, > 5.0 cm = VACANT)"));
         }
     }
 
