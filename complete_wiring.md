@@ -51,34 +51,34 @@
 ### Slot G1 LEDs
 * **G1 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G1 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **G1 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P0**
+* **G1 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Header Pin 4 (RS / P0)**
 * **G1 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G1 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **G1 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P1**
+* **G1 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **Header Pin 5 (RW / P1)**
 
 ### Slot G2 LEDs
 * **G2 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G2 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **G2 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P2**
+* **G2 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Header Pin 6 (E / P2)**
 * **G2 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G2 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **G2 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P3**
+* **G2 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **2-Pin LED Header (P3 / Transistor Pin)**
 
 ### Slot G3 LEDs
 * **G3 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G3 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **G3 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P4**
+* **G3 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Header Pin 11 (D4 / P4)**
 * **G3 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G3 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **G3 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P5**
+* **G3 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **Header Pin 12 (D5 / P5)**
 
 ### Slot G4 LEDs
 * **G4 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G4 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **G4 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P6**
+* **G4 Green LED Resistor Leg 2** ➔ PCF8574 (0x26) **Header Pin 13 (D6 / P6)**
 * **G4 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **G4 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **G4 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **Pin P7**
+* **G4 Red LED Resistor Leg 2** ➔ PCF8574 (0x26) **Header Pin 14 (D7 / P7)**
 
 ---
 
@@ -87,34 +87,34 @@
 ### Slot F1 LEDs
 * **F1 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F1 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **F1 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P0**
+* **F1 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Header Pin 4 (RS / P0)**
 * **F1 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F1 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **F1 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P1**
+* **F1 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **Header Pin 5 (RW / P1)**
 
 ### Slot F2 LEDs
 * **F2 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F2 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **F2 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P2**
+* **F2 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Header Pin 6 (E / P2)**
 * **F2 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F2 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **F2 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P3**
+* **F2 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **2-Pin LED Header (P3 / Transistor Pin)**
 
 ### Slot F3 LEDs
 * **F3 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F3 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **F3 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P4**
+* **F3 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Header Pin 11 (D4 / P4)**
 * **F3 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F3 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **F3 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P5**
+* **F3 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **Header Pin 12 (D5 / P5)**
 
 ### Slot F4 LEDs
 * **F4 Green LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F4 Green LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **F4 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P6**
+* **F4 Green LED Resistor Leg 2** ➔ PCF8574 (0x25) **Header Pin 13 (D6 / P6)**
 * **F4 Red LED Anode (Long leg, +)** ➔ Breadboard **5V Power Rail**
 * **F4 Red LED Cathode (Short leg, -)** ➔ Leg 1 of 220Ω Resistor
-* **F4 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **Pin P7**
+* **F4 Red LED Resistor Leg 2** ➔ PCF8574 (0x25) **Header Pin 14 (D7 / P7)**
 
 ---
 

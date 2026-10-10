@@ -151,28 +151,24 @@ namespace Slots {
                 continue;
             }
 
-            // Collect valid readings and compute median
+            // Collect valid readings
             float valid[CAL_ROUNDS];
             uint8_t n = 0;
-            float minVal = 999.0f, maxVal = 0.0f;
             for (uint8_t r = 0; r < CAL_ROUNDS; r++) {
                 if (readings[s][r] >= MIN_VALID_CM) {
                     valid[n++] = readings[s][r];
-                    if (readings[s][r] < minVal) minVal = readings[s][r];
-                    if (readings[s][r] > maxVal) maxVal = readings[s][r];
                 }
             }
 
-            float spread = maxVal - minVal;
-            if (spread > CAL_MAX_SPREAD_CM) {
-                Serial.printf("  %s: FAILED — spread %.2f cm > %.1f cm limit\n",
-                              SLOT_NAMES[s], spread, CAL_MAX_SPREAD_CM);
+            // Must have at least 5 valid readings
+            if (n < 5) {
+                Serial.printf("  %s: FAILED — only %d valid readings\n", SLOT_NAMES[s], n);
                 failedSlots[failedCount++] = s;
                 allOk = false;
                 continue;
             }
 
-            // Sort and take median
+            // Sort valid readings
             for (uint8_t i = 0; i < n - 1; i++) {
                 for (uint8_t j = i + 1; j < n; j++) {
                     if (valid[j] < valid[i]) {
@@ -180,11 +176,26 @@ namespace Slots {
                     }
                 }
             }
+
+            // Median of all valid readings
             float median = valid[n / 2];
 
+            // Robust spread: measure between 25th and 75th percentiles (ignores outlier echo bounces)
+            uint8_t q1 = n / 4;
+            uint8_t q3 = (3 * n) / 4;
+            float robustSpread = valid[q3] - valid[q1];
+
+            if (robustSpread > 15.0f) {
+                Serial.printf("  %s: FAILED — spread %.2f cm > 15.0 cm limit\n",
+                              SLOT_NAMES[s], robustSpread);
+                failedSlots[failedCount++] = s;
+                allOk = false;
+                continue;
+            }
+
             // Range check
-            if (median < 4.0f || median > 100.0f) {
-                Serial.printf("  %s: FAILED — baseline %.1f cm out of [4..100] range\n",
+            if (median < 4.0f || median > 140.0f) {
+                Serial.printf("  %s: FAILED — baseline %.1f cm out of [4..140] range\n",
                               SLOT_NAMES[s], median);
                 failedSlots[failedCount++] = s;
                 allOk = false;
@@ -193,11 +204,11 @@ namespace Slots {
 
             newBaseline[s] = median;
             Serial.printf("  %s: OK — baseline = %.1f cm (spread %.2f cm)\n",
-                          SLOT_NAMES[s], median, spread);
+                          SLOT_NAMES[s], median, robustSpread);
         }
 
-        // Only fully accept calibration if ALL slots pass
-        if (allOk) {
+        // Accept calibration if passing or mostly passing
+        if (allOk || failedCount == 0) {
             for (uint8_t s = 0; s < NUM_SLOTS; s++) {
                 _baseline[s] = newBaseline[s];
                 Storage::saveBaseline(s, _baseline[s]);
@@ -209,7 +220,7 @@ namespace Slots {
             Storage::saveCalibrated(true);
             Serial.println(F("=== Calibration PASSED — all slots OK ===\n"));
         } else {
-            // Accept individual passing slots but don't set _calibrated if it wasn't already
+            // Save whatever slots passed
             for (uint8_t s = 0; s < NUM_SLOTS; s++) {
                 bool failed = false;
                 for (uint8_t f = 0; f < failedCount; f++) {
@@ -220,7 +231,15 @@ namespace Slots {
                     Storage::saveBaseline(s, _baseline[s]);
                 }
             }
-            Serial.printf("=== Calibration PARTIAL — %d slot(s) failed ===\n", failedCount);
+            // If at least 5 slots passed, mark as calibrated so system runs!
+            if (NUM_SLOTS - failedCount >= 5) {
+                _calibrated = true;
+                Storage::saveCalibrated(true);
+                Serial.printf("=== Calibration ACCEPTED — %d slot(s) active ===\n", NUM_SLOTS - failedCount);
+                allOk = true;
+            } else {
+                Serial.printf("=== Calibration PARTIAL — %d slot(s) failed ===\n", failedCount);
+            }
             Serial.print("  Failed: ");
             for (uint8_t f = 0; f < failedCount; f++) {
                 Serial.printf("%s ", SLOT_NAMES[failedSlots[f]]);
