@@ -25,6 +25,7 @@ namespace Display {
 
     static void writeLine(uint8_t row, const char* text) {
         if (!_lcd) return;
+        _lcd->backlight();
         _lcd->setCursor(0, row);
         // Pad to LCD_COLS to clear previous content
         char buf[LCD_COLS + 1];
