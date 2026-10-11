@@ -150,7 +150,7 @@ namespace Gates {
         if (hold_ms < GATE_HOLD_MIN_MS) hold_ms = GATE_HOLD_MIN_MS;
         if (hold_ms > GATE_HOLD_MAX_MS) hold_ms = GATE_HOLD_MAX_MS;
 
-        // Entry gate has additional checks
+        // Entry gate checks (prevent entry if uncalibrated or full)
         if (gate == GATE_ENTRY) {
             if (!Slots::isCalibrated()) {
                 snprintf(reason, reasonLen, "uncalibrated");
@@ -162,7 +162,8 @@ namespace Gates {
                 Serial.println(F("[Gates] Entry REFUSED: parking full"));
                 return false;
             }
-            if (!_linkUp && strcmp(req_id, "manual") != 0) {
+            // Allow commands sent from host (car_ or manual_) even if heartbeat momentarily lagged
+            if (!_linkUp && req_id && strncmp(req_id, "manual", 6) != 0 && strncmp(req_id, "car_", 4) != 0) {
                 snprintf(reason, reasonLen, "link");
                 Serial.println(F("[Gates] Entry REFUSED: link down"));
                 return false;
