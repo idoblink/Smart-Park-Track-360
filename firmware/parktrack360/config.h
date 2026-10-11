@@ -63,7 +63,7 @@ static const uint8_t ECHO_PINS[NUM_SLOTS] = {34, 35, 36, 39, 18,  5, 17, 16};
 #define SERVO_OPEN_DEG     90
 #define SERVO_STEP_DEG     2
 #define SERVO_STEP_MS      15          // ms per step → ~0.7 s for 90°
-#define SERVO_MIN_US       500
+#define SERVO_MIN_US       544         // standard safe SG90 minimum pulse
 #define SERVO_MAX_US       2400
 #define GATE_HOLD_MS       5000        // [NVS] default hold-open time
 #define GATE_HOLD_MIN_MS   1000        // server-clamped minimum

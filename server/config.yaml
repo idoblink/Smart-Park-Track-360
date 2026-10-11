@@ -42,8 +42,8 @@ camera:
 
   # --- Dual USB Webcam Setup (Entry & Exit Lanes) ---
   entry:
-    # Camera index on Windows (Index 1 is Entry USB webcam)
-    source: 1
+    # Camera index on Windows (Index 2 is Entry USB webcam)
+    source: 2
     backend: dshow
     width: 640
     height: 480
@@ -52,8 +52,8 @@ camera:
     roi: [50, 50, 540, 380]
 
   exit:
-    # Camera index on Windows (Index 2 is Exit USB webcam)
-    source: 2
+    # Camera index on Windows (Index 1 is Exit USB webcam)
+    source: 1
     backend: dshow
     width: 640
     height: 480

@@ -101,6 +101,9 @@ class ESP32SerialManager:
 
                         # Send initial hello_ack to wake up / acknowledge ESP32
                         self.send({"t": "hello_ack"})
+                        # Enforce 90 degree open angle on ESP32 servos
+                        time.sleep(0.05)
+                        self.send_raw("angles 0 90")
                     except (serial.SerialException, OSError) as e:
                         logger.debug(f"Could not open {port_name}: {e}")
                         time.sleep(2.0)
@@ -149,4 +152,18 @@ class ESP32SerialManager:
                 return True
             except Exception as e:
                 logger.error(f"Failed to write to ESP32 serial: {e}")
+                return False
+
+    def send_raw(self, cmd_str: str) -> bool:
+        """Sends a raw string line command (e.g. 'angles 0 180') to ESP32."""
+        with self._lock:
+            if not self.ser or not self.ser.is_open:
+                return False
+            try:
+                msg = cmd_str.strip() + "\n"
+                self.ser.write(msg.encode("utf-8"))
+                self.ser.flush()
+                return True
+            except Exception as e:
+                logger.error(f"Failed to write raw command to ESP32 serial: {e}")
                 return False

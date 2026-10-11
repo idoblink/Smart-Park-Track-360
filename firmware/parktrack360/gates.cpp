@@ -44,12 +44,13 @@ namespace Gates {
     // --------------- public API ---------------
 
     void begin() {
-        // Load settings from NVS
+        // Load settings from NVS (default to 90 degrees open)
         _closedAngle = Storage::loadClosedAngle(SERVO_CLOSED_DEG);
-        _openAngle   = Storage::loadOpenAngle(SERVO_OPEN_DEG);
+        _openAngle   = SERVO_OPEN_DEG;
+        Storage::saveOpenAngle(_openAngle);
         _defaultHold = Storage::loadHoldMs(GATE_HOLD_MS);
 
-        // Configure entry gate
+        // Configure entry gate (GPIO 23)
         _gates[GATE_ENTRY].pin = PIN_SERVO_ENTRY;
         _gates[GATE_ENTRY].state = GATE_CLOSED;
         _gates[GATE_ENTRY].currentAngle = _closedAngle;
@@ -57,7 +58,7 @@ namespace Gates {
         _gates[GATE_ENTRY].holdTimer = 0;
         _gates[GATE_ENTRY].holdMs = _defaultHold;
 
-        // Configure exit gate
+        // Configure exit gate (GPIO 15)
         _gates[GATE_EXIT].pin = PIN_SERVO_EXIT;
         _gates[GATE_EXIT].state = GATE_CLOSED;
         _gates[GATE_EXIT].currentAngle = _closedAngle;
@@ -65,10 +66,18 @@ namespace Gates {
         _gates[GATE_EXIT].holdTimer = 0;
         _gates[GATE_EXIT].holdMs = _defaultHold;
 
-        // Attach and set to closed position
+        // Allocate all 4 timers so ESP32Servo assigns independent LEDC hardware channels
+        ESP32PWM::allocateTimer(0);
+        ESP32PWM::allocateTimer(1);
+        ESP32PWM::allocateTimer(2);
+        ESP32PWM::allocateTimer(3);
+
+        // Attach each servo to its independent pin and channel
         for (uint8_t i = 0; i < 2; i++) {
             _gates[i].servo.setPeriodHertz(50);
-            _gates[i].servo.attach(_gates[i].pin, SERVO_MIN_US, SERVO_MAX_US);
+            int ch = _gates[i].servo.attach(_gates[i].pin, SERVO_MIN_US, SERVO_MAX_US);
+            Serial.printf("[Gates] %s gate (pin %d) attached to PWM channel %d\n",
+                          i == 0 ? "Entry" : "Exit", _gates[i].pin, ch);
             writeAngle(_gates[i], _closedAngle);
         }
 

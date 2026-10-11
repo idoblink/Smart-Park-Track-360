@@ -272,14 +272,24 @@ class ParkingState:
             db.save_car_state(car_id, "OUTSIDE", None, None, None, db_path=self.db_path)
             db.log_event("deny", car=car_id, detail=f"rollback: {reason}", db_path=self.db_path)
 
-    def authorize_exit(self, car_id: int) -> Tuple[bool, str, float]:
+    def authorize_exit(self, car_id: int, auto_admit: bool = False) -> Tuple[bool, str, float]:
         """Evaluates exit lane authorization and calculates final bill."""
         if car_id < 1 or car_id > 8:
             return False, "invalid_car", 0.0
         
         car = self.cars.get(car_id)
         if not car or car["state"] == "OUTSIDE":
-            return False, "not_inside", 0.0
+            if not car:
+                return False, "invalid_car", 0.0
+            if auto_admit:
+                # Auto-admit car for demo/testing convenience so exit gate opens
+                now_str = self.now_iso()
+                v_id = db.start_visit(car_id, db_path=self.db_path)
+                car["entered_ts"] = now_str
+                car["visit_id"] = v_id
+                car["state"] = "ENTERED"
+            else:
+                return False, "not_inside", 0.0
 
         # Compute dwell time and bill
         inside_s, fare = self.compute_fare(car.get("entered_ts"))

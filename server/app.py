@@ -14,12 +14,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Body
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from server.state import ParkingState
 from server import db
 from server.serial_comm import ESP32SerialManager
+from server.vision import VisionManager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("parktrack")
@@ -32,6 +33,46 @@ ui_sockets: Set[WebSocket] = set()
 
 main_loop: Optional[asyncio.AbstractEventLoop] = None
 serial_mgr: Optional[ESP32SerialManager] = None
+vision_mgr: Optional[VisionManager] = None
+
+# Vision detection event handler for numbered cars
+def on_car_vision_event(lane: str, car_id: int):
+    global main_loop
+    logger.info(f"Vision event: Car #{car_id} detected at {lane.upper()} gate")
+    if main_loop and main_loop.is_running():
+        asyncio.run_coroutine_threadsafe(handle_vision_car_trigger(lane, car_id), main_loop)
+
+async def handle_vision_car_trigger(lane: str, car_id: int):
+    hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
+    if lane == "entry":
+        ok, reason = state.authorize_entry(car_id)
+        logger.info(f"Vision Entry auth for Car #{car_id}: ok={ok}, reason={reason}")
+        req_id = f"car_{car_id}_{int(time.time())}"
+        await send_to_esp32({
+            "t": "gate",
+            "gate": "entry",
+            "action": "open",
+            "hold_ms": hold_ms,
+            "req_id": req_id
+        })
+        state.gates["entry"] = "opening"
+        db.log_event("vision_entry", car=car_id, detail=f"auto_gate_180_open (auth={ok})")
+        await broadcast_ui_snapshot()
+
+    elif lane == "exit":
+        ok, reason, fare = state.authorize_exit(car_id, auto_admit=True)
+        logger.info(f"Vision Exit auth for Car #{car_id}: ok={ok}, fare={fare}")
+        req_id = f"exit_car_{car_id}_{int(time.time())}"
+        await send_to_esp32({
+            "t": "gate",
+            "gate": "exit",
+            "action": "open",
+            "hold_ms": hold_ms,
+            "req_id": req_id
+        })
+        state.gates["exit"] = "opening"
+        db.log_event("vision_exit", car=car_id, detail=f"auto_gate_180_open (fare={fare})")
+        await broadcast_ui_snapshot()
 
 # Helper to dispatch ESP32 message from either Serial or WebSocket
 def process_esp32_message(data: Dict[str, Any]):
@@ -145,7 +186,7 @@ async def background_heartbeat_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global main_loop, serial_mgr
+    global main_loop, serial_mgr, vision_mgr
     main_loop = asyncio.get_running_loop()
 
     # Start USB Serial worker for direct cable connection
@@ -158,9 +199,15 @@ async def lifespan(app: FastAPI):
     )
     serial_mgr.start()
 
+    # Start Dual Camera Vision Digit Recognition
+    vision_mgr = VisionManager(state.config, on_car_vision_event)
+    vision_mgr.start()
+
     hb_task = asyncio.create_task(background_heartbeat_loop())
     yield
     hb_task.cancel()
+    if vision_mgr:
+        vision_mgr.stop()
     if serial_mgr:
         serial_mgr.stop()
 
@@ -267,6 +314,22 @@ async def websocket_ui_endpoint(websocket: WebSocket):
         ui_sockets.discard(websocket)
 
 # --- REST API Endpoints ---
+
+@app.get("/api/video/{lane}")
+async def video_feed_endpoint(lane: str):
+    """Streams live MJPEG camera feed with digit recognition HUD for entry or exit lane."""
+    if lane not in ["entry", "exit"]:
+        raise HTTPException(status_code=400, detail="Invalid lane (must be 'entry' or 'exit')")
+
+    def frame_generator():
+        while True:
+            frame_bytes = vision_mgr.get_jpeg(lane) if vision_mgr else None
+            if frame_bytes:
+                yield (b"--frame\r\n"
+                       b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n")
+            time.sleep(0.04)
+
+    return StreamingResponse(frame_generator(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 @app.get("/api/snapshot")
 async def get_snapshot_endpoint():
