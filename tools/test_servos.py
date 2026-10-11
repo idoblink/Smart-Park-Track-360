@@ -38,11 +38,13 @@ def main():
     print("2 -> Open EXIT gate   (GPIO 15 to 90° for 5s)")
     print("3 -> Set angles 0 90  (Enforce 0° closed, 90° open)")
     print("4 -> Set angles 10 90 (Relax closed angle to 10° to stop buzzing)")
+    print("5 -> Set ENTRY to specific angle (e.g. 0, 45, 90, 180)")
+    print("6 -> Set EXIT to specific angle (e.g. 0, 45, 90, 180)")
     print("q -> Quit")
     print("=======================================================")
 
     while True:
-        choice = input("\nEnter choice (1/2/3/4/q): ").strip().lower()
+        choice = input("\nEnter choice (1/2/3/4/5/6/q): ").strip().lower()
         if choice == "q":
             break
         elif choice == "1":
@@ -61,6 +63,16 @@ def main():
         elif choice == "4":
             ser.write(b"angles 10 90\n")
             print("Sent: angles 10 90 (relaxes bottom endstop to cure vibration)")
+        elif choice == "5":
+            ang = input("Enter angle for ENTRY (0-180): ").strip()
+            msg = f"servotest entry {ang}\n"
+            ser.write(msg.encode())
+            print(f"Sent: {msg.strip()}")
+        elif choice == "6":
+            ang = input("Enter angle for EXIT (0-180): ").strip()
+            msg = f"servotest exit {ang}\n"
+            ser.write(msg.encode())
+            print(f"Sent: {msg.strip()}")
         else:
             print("Invalid choice")
 

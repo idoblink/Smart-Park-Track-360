@@ -50,6 +50,9 @@ namespace Gates {
     // Set servo angles (and save to NVS)
     void setAngles(uint8_t closed, uint8_t open);
 
+    // Direct manual write for calibration testing (bypasses state machine)
+    void writeDirect(GateId gate, uint8_t angle);
+
     // Set hold time (and save to NVS)
     void setHoldMs(uint16_t ms);
 

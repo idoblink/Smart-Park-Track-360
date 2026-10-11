@@ -185,6 +185,16 @@ namespace SerialCmd {
                 Serial.println(F("Usage: angles <closed> <open> (e.g. angles 0 90)"));
             }
 
+        } else if (strncasecmp(p, "servotest", 9) == 0) {
+            char gName[16] = "";
+            int angle = 0;
+            if (sscanf(p, "%*s %15s %d", gName, &angle) == 2 && angle >= 0 && angle <= 180) {
+                GateId gid = (strcasecmp(gName, "entry") == 0) ? GATE_ENTRY : GATE_EXIT;
+                Gates::writeDirect(gid, (uint8_t)angle);
+            } else {
+                Serial.println(F("Usage: servotest <entry|exit> <0-180> (e.g. servotest entry 90)"));
+            }
+
         } else if (strncasecmp(p, "hold", 4) == 0) {
             int ms = 0;
             if (sscanf(p, "%*s %d", &ms) == 1 && ms >= 500 && ms <= 30000) {

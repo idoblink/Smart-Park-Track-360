@@ -66,8 +66,7 @@ namespace Gates {
         _gates[GATE_EXIT].holdTimer = 0;
         _gates[GATE_EXIT].holdMs = _defaultHold;
 
-        // Allocate all 4 timers so ESP32Servo assigns independent LEDC hardware channels
-        ESP32PWM::allocateTimer(0);
+        // Allocate timers 1, 2, 3 (skip Timer 0 which is reserved by FreeRTOS system tick)
         ESP32PWM::allocateTimer(1);
         ESP32PWM::allocateTimer(2);
         ESP32PWM::allocateTimer(3);
@@ -100,8 +99,12 @@ namespace Gates {
                             int16_t next = g.currentAngle + SERVO_STEP_DEG;
                             if (next > target) next = target;
                             writeAngle(g, next);
+                        } else if (g.currentAngle > target) {
+                            int16_t next = g.currentAngle - SERVO_STEP_DEG;
+                            if (next < target) next = target;
+                            writeAngle(g, next);
                         }
-                        if (g.currentAngle >= target) {
+                        if (g.currentAngle == target) {
                             g.state = GATE_OPEN;
                             g.holdTimer = now;
                             Serial.printf("[Gates] %s gate OPEN (hold %dms)\n",
@@ -115,7 +118,7 @@ namespace Gates {
                         g.state = GATE_CLOSING;
                         g.stepTimer = now;
                         Serial.printf("[Gates] %s gate CLOSING (hold expired)\n",
-                                      i == 0 ? "Entry" : "Exit");
+                                          i == 0 ? "Entry" : "Exit");
                     }
                     break;
 
@@ -127,8 +130,12 @@ namespace Gates {
                             int16_t next = g.currentAngle - SERVO_STEP_DEG;
                             if (next < target) next = target;
                             writeAngle(g, next);
+                        } else if (g.currentAngle < target) {
+                            int16_t next = g.currentAngle + SERVO_STEP_DEG;
+                            if (next > target) next = target;
+                            writeAngle(g, next);
                         }
-                        if (g.currentAngle <= target) {
+                        if (g.currentAngle == target) {
                             g.state = GATE_CLOSED;
                             Serial.printf("[Gates] %s gate CLOSED\n",
                                           i == 0 ? "Entry" : "Exit");
@@ -236,6 +243,12 @@ namespace Gates {
         Storage::saveClosedAngle(closed);
         Storage::saveOpenAngle(open);
         Serial.printf("[Gates] Angles set: closed=%d°, open=%d°\n", closed, open);
+    }
+
+    void writeDirect(GateId gate, uint8_t angle) {
+        if (gate > 1) return;
+        writeAngle(_gates[gate], angle);
+        Serial.printf("[Gates] %s gate forced to %d°\n", gate == 0 ? "Entry" : "Exit", angle);
     }
 
     void setHoldMs(uint16_t ms) {
