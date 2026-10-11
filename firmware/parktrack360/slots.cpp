@@ -17,6 +17,7 @@ namespace Slots {
     static uint8_t  _debounce[NUM_SLOTS];      // consecutive rounds of pending
     static uint8_t  _faultCount[NUM_SLOTS];    // consecutive invalid rounds
     static bool     _calibrated = false;
+    static bool     _nvsCalibrated = false;  // true only if NVS had real calibration data
     static float    _margin = OCCUPIED_MARGIN_CM;
 
     // --------------- helpers ---------------
@@ -25,13 +26,14 @@ namespace Slots {
         float dist = Sensors::getDistance(slot);
         if (dist < 0) return SLOT_UNKNOWN;  // invalid reading / timeout
 
-        // Hand or vehicle within range (threshold <= OCCUPIED_THRESHOLD_CM, 5.0 cm) is OCCUPIED
+        // Hand or vehicle within range (<= OCCUPIED_THRESHOLD_CM) is OCCUPIED
         if (dist <= OCCUPIED_THRESHOLD_CM) {
             return SLOT_OCCUPIED;
         }
 
-        // Also if a calibrated baseline exists (> 5 cm) and distance drops by more than margin
-        if (_baseline[slot] > 5.0f && dist < (_baseline[slot] - _margin)) {
+        // Baseline comparison: only if NVS had real calibration data
+        // Without calibration, baselines are meaningless defaults (30 cm)
+        if (_nvsCalibrated && _baseline[slot] > OCCUPIED_THRESHOLD_CM && dist < (_baseline[slot] - _margin)) {
             return SLOT_OCCUPIED;
         }
 
@@ -43,7 +45,7 @@ namespace Slots {
 
     void begin() {
         _margin = Storage::loadMargin(OCCUPIED_MARGIN_CM);
-        bool nvsCal = Storage::loadCalibrated();
+        _nvsCalibrated = Storage::loadCalibrated();
         _calibrated = true;  // Live occupancy tracking is active immediately on boot
 
         for (uint8_t i = 0; i < NUM_SLOTS; i++) {
@@ -54,13 +56,14 @@ namespace Slots {
             _faultCount[i] = 0;
         }
 
-        if (nvsCal) {
+        if (_nvsCalibrated) {
             Serial.println(F("[Slots] Baselines loaded from NVS"));
             for (uint8_t i = 0; i < NUM_SLOTS; i++) {
                 Serial.printf("  %s: %.1f cm\n", SLOT_NAMES[i], _baseline[i]);
             }
         } else {
-            Serial.println(F("[Slots] Running direct proximity mode (<= 5.0 cm = OCCUPIED, > 5.0 cm = VACANT)"));
+            Serial.printf("[Slots] Running direct proximity mode (<= %.1f cm = OCCUPIED, > %.1f cm = VACANT)\n",
+                          (float)OCCUPIED_THRESHOLD_CM, (float)OCCUPIED_THRESHOLD_CM);
         }
     }
 
@@ -226,6 +229,7 @@ namespace Slots {
                 _faultCount[s] = 0;
             }
             _calibrated = true;
+            _nvsCalibrated = true;
             Storage::saveCalibrated(true);
             Serial.println(F("=== Calibration PASSED — all slots OK ===\n"));
         } else {
@@ -243,6 +247,7 @@ namespace Slots {
             // If at least 5 slots passed, mark as calibrated so system runs!
             if (NUM_SLOTS - failedCount >= 5) {
                 _calibrated = true;
+                _nvsCalibrated = true;
                 Storage::saveCalibrated(true);
                 Serial.printf("=== Calibration ACCEPTED — %d slot(s) active ===\n", NUM_SLOTS - failedCount);
                 allOk = true;
