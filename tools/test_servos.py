@@ -34,7 +34,7 @@ def main():
         ser.readline()
 
     print("\n================ SERVO DIAGNOSTIC MENU ================")
-    print("1 -> Open ENTRY gate  (GPIO 23 to 90° for 5s)")
+    print("1 -> Open ENTRY gate  (GPIO 4 to 90° for 5s)")
     print("2 -> Open EXIT gate   (GPIO 15 to 90° for 5s)")
     print("3 -> Set angles 0 90  (Enforce 0° closed, 90° open)")
     print("4 -> Set angles 10 90 (Relax closed angle to 10° to stop buzzing)")

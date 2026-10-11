@@ -28,7 +28,7 @@ static const uint8_t ECHO_PINS[NUM_SLOTS] = {34, 35, 36, 39, 18,  5, 17, 16};
 
 #define PIN_SDA           21
 #define PIN_SCL           22
-#define PIN_SERVO_ENTRY   23
+#define PIN_SERVO_ENTRY   4
 #define PIN_SERVO_EXIT    15
 
 // Gate LEDs removed per owner request — GPIO4 and GPIO2 are free.
