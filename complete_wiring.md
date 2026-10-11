@@ -209,9 +209,9 @@
 ## 7. Barrier Gate Servo Motors
 
 ### Entry Barrier Gate Servo
-* **Signal Wire (Orange or Yellow)** ➔ ESP32 **GPIO 2 (D2)** (Left header pin 4, directly adjacent to D15)
-* **Power Wire (Red)** ➔ Breadboard **5V Power Rail** (Plug directly next to Exit servo Red wire)
-* **Ground Wire (Brown or Black)** ➔ Breadboard **Common Ground Bus (GND)** (Plug directly next to Exit servo Brown wire)
+* **Signal Wire (Orange or Yellow)** ➔ ESP32 **GPIO 4 (D4)** (Left header pin 5, two pins below D15)
+* **Power Wire (Red)** ➔ Breadboard **5V Power Rail** (Plugged directly adjacent to Exit servo Red wire)
+* **Ground Wire (Brown or Black)** ➔ Breadboard **Common Ground Bus (GND)** (Plugged directly adjacent to Exit servo Brown wire)
 
 ### Exit Barrier Gate Servo
 * **Signal Wire (Orange or Yellow)** ➔ ESP32 **GPIO 15**
