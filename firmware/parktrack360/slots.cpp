@@ -24,20 +24,13 @@ namespace Slots {
 
     static SlotState classify(uint8_t slot) {
         float dist = Sensors::getDistance(slot);
-        if (dist < 0) return SLOT_UNKNOWN;  // invalid reading / timeout
 
-        // Hand or vehicle within range (<= OCCUPIED_THRESHOLD_CM) is OCCUPIED
-        if (dist <= OCCUPIED_THRESHOLD_CM) {
+        // ONLY when distance is valid and <= 2.5 cm is it OCCUPIED
+        if (dist > 0.0f && dist <= OCCUPIED_THRESHOLD_CM) {
             return SLOT_OCCUPIED;
         }
 
-        // Baseline comparison: only if NVS had real calibration data
-        // Without calibration, baselines are meaningless defaults (30 cm)
-        if (_nvsCalibrated && _baseline[slot] > OCCUPIED_THRESHOLD_CM && dist < (_baseline[slot] - _margin)) {
-            return SLOT_OCCUPIED;
-        }
-
-        // Anything more than that is VACANT
+        // Otherwise (dist > 2.5 cm, open air, or no obstacle): ALWAYS VACANT (Green)
         return SLOT_VACANT;
     }
 
@@ -45,77 +38,40 @@ namespace Slots {
 
     void begin() {
         _margin = Storage::loadMargin(OCCUPIED_MARGIN_CM);
-        _nvsCalibrated = Storage::loadCalibrated();
         _calibrated = true;  // Live occupancy tracking is active immediately on boot
 
         for (uint8_t i = 0; i < NUM_SLOTS; i++) {
-            _baseline[i] = Storage::loadBaseline(i, 30.0f);
+            _baseline[i] = 30.0f;
             _state[i] = SLOT_VACANT;
             _pending[i] = SLOT_VACANT;
             _debounce[i] = 0;
             _faultCount[i] = 0;
         }
 
-        if (_nvsCalibrated) {
-            Serial.println(F("[Slots] Baselines loaded from NVS"));
-            for (uint8_t i = 0; i < NUM_SLOTS; i++) {
-                Serial.printf("  %s: %.1f cm\n", SLOT_NAMES[i], _baseline[i]);
-            }
-        } else {
-            Serial.printf("[Slots] Running direct proximity mode (<= %.1f cm = OCCUPIED, > %.1f cm = VACANT)\n",
-                          (float)OCCUPIED_THRESHOLD_CM, (float)OCCUPIED_THRESHOLD_CM);
-        }
+        Serial.printf("[Slots] Active with pure proximity mode (<= %.1f cm = OCCUPIED, else VACANT)\n",
+                      (float)OCCUPIED_THRESHOLD_CM);
     }
 
     void update() {
-
         for (uint8_t i = 0; i < NUM_SLOTS; i++) {
-            float dist = Sensors::getDistance(i);
-
-            // --- Fault detection ---
-            if (dist < 0) {
-                _faultCount[i]++;
-                if (_faultCount[i] >= FAULT_ROUNDS && _state[i] != SLOT_FAULT) {
-                    _state[i] = SLOT_FAULT;
-                    _debounce[i] = 0;
-                    Serial.printf("[Slots] %s → FAULT (no valid readings for %d rounds)\n",
-                                  SLOT_NAMES[i], FAULT_ROUNDS);
-                }
-                continue;
-            }
-
-            // Valid reading — reset fault counter
-            if (_faultCount[i] > 0) {
-                _faultCount[i] = 0;
-                if (_state[i] == SLOT_FAULT) {
-                    // Recover from fault — start debouncing the new state
-                    _state[i] = SLOT_UNKNOWN;
-                    Serial.printf("[Slots] %s recovering from fault\n", SLOT_NAMES[i]);
-                }
-            }
-
-            // --- Occupancy classification ---
             SlotState newState = classify(i);
 
             if (newState == _state[i]) {
-                // Stable — reset debounce
                 _pending[i] = _state[i];
                 _debounce[i] = 0;
             } else if (newState == _pending[i]) {
-                // Same candidate as last round — increment debounce
                 _debounce[i]++;
                 if (_debounce[i] >= DEBOUNCE_ROUNDS) {
                     SlotState old = _state[i];
                     _state[i] = newState;
                     _debounce[i] = 0;
-                    Serial.printf("[Slots] %s: %s → %s\n",
+                    Serial.printf("[Slots] %s: %s → %s (dist: %.1f cm)\n",
                                   SLOT_NAMES[i],
-                                  old == SLOT_VACANT ? "VACANT" :
-                                  old == SLOT_OCCUPIED ? "OCCUPIED" : "UNKNOWN",
-                                  newState == SLOT_VACANT ? "VACANT" : "OCCUPIED");
+                                  old == SLOT_VACANT ? "VACANT" : "OCCUPIED",
+                                  newState == SLOT_VACANT ? "VACANT" : "OCCUPIED",
+                                  Sensors::getDistance(i));
                 }
             } else {
-                // Different candidate — restart debounce
                 _pending[i] = newState;
                 _debounce[i] = 1;
             }

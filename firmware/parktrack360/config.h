@@ -50,8 +50,8 @@ static const uint8_t ECHO_PINS[NUM_SLOTS] = {34, 35, 36, 39, 18,  5, 17, 16};
 #define ECHO_TIMEOUT_US       12000    // ~205 cm max range (prevents timeouts on empty slots)
 #define SENSOR_GAP_MS         15       // min gap between consecutive sensors
 #define MEDIAN_WINDOW         3        // sliding median window per slot
-#define DEBOUNCE_ROUNDS       2        // consecutive rounds before state change (~250 ms)
-#define MIN_VALID_CM          1.0f     // readings below this are invalid (allows close range detection)
+#define DEBOUNCE_ROUNDS       1        // 1 round (~120 ms) for instant, responsive LED & LCD reaction
+#define MIN_VALID_CM          0.1f     // readings down to 0.1 cm are valid (allows close range detection)
 #define OCCUPIED_THRESHOLD_CM 2.5f     // vehicle / hand at <= 2.5 cm = OCCUPIED
 #define OCCUPIED_MARGIN_CM    1.5f     // [NVS] baseline – margin = occupied threshold
 #define CAL_ROUNDS            15       // calibration: number of rounds
