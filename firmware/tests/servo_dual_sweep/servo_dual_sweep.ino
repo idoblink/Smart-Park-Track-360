@@ -8,7 +8,7 @@
 #include <Arduino.h>
 #include <ESP32Servo.h>
 
-#define PIN_ENTRY  4    // If using GPIO 23, change to 23
+#define PIN_ENTRY  2    // GPIO 2 (D2) — Right next to D15! Onboard blue LED flashes with it!
 #define PIN_EXIT   15
 
 Servo entryServo;
