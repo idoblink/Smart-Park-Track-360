@@ -721,6 +721,10 @@ STATIC_DIR = Path("server/static")
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+@app.get("/healthz")
+async def health_check():
+    return {"status": "ok", "app": "ParkTrack 360"}
+
 @app.get("/")
 async def serve_index():
     index_file = STATIC_DIR / "index.html"
