@@ -29,6 +29,7 @@
   const qrContainer = document.getElementById('qrContainer');
   const qrAmountText = document.getElementById('qrAmountText');
   const upiIdDisplay = document.getElementById('upiIdDisplay');
+  const btnPhonePePay = document.getElementById('btnPhonePePay');
   const btnRazorpayPay = document.getElementById('btnRazorpayPay');
   const btnVerifyManual = document.getElementById('btnVerifyManual');
 
@@ -271,6 +272,89 @@
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
+  // 2.5 PhonePe Payment Flow & Automatic Status Polling
+  let phonePePollTimer = null;
+
+  async function openPhonePeCheckout() {
+    if (!selectedCar) {
+      alert('Please select an active vehicle inside the facility.');
+      return;
+    }
+
+    if (btnPhonePePay) {
+      btnPhonePePay.disabled = true;
+      btnPhonePePay.innerHTML = `<span>Connecting to PhonePe...</span>`;
+    }
+
+    try {
+      const res = await fetch('/api/payment/phonepe/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ car: selectedCar })
+      });
+
+      const data = await res.json();
+      if (!data.ok || !data.payment_url) {
+        throw new Error(data.detail || data.error || 'Failed to initiate PhonePe order');
+      }
+
+      console.log('PhonePe Order Initiated:', data);
+
+      // Open PhonePe checkout in a new window/tab
+      const payWindow = window.open(data.payment_url, '_blank');
+
+      if (btnPhonePePay) {
+        btnPhonePePay.innerHTML = `<span>Awaiting Payment • Auto-opening Gate...</span>`;
+      }
+
+      // Start automatic polling every 2 seconds
+      if (phonePePollTimer) clearInterval(phonePePollTimer);
+      const pollCar = selectedCar;
+      const txnId = data.txn_id;
+
+      phonePePollTimer = setInterval(async () => {
+        try {
+          const pollRes = await fetch(`/api/payment/phonepe/status/${pollCar}/${txnId}`);
+          const pollData = await pollRes.json();
+          console.log('PhonePe Poll Status:', pollData);
+
+          if (pollData.ok && pollData.is_paid) {
+            clearInterval(phonePePollTimer);
+            if (payWindow && !payWindow.closed) {
+              payWindow.close();
+            }
+            showReceipt({
+              receipt_id: `PHON-${pollCar}-${Date.now().toString().slice(-6)}`,
+              car: pollCar,
+              fare: pollData.fare || currentOrderData?.fare || 50.0
+            }, 'PhonePe UPI');
+          }
+        } catch (pollErr) {
+          console.warn('Poll error:', pollErr);
+        }
+      }, 2000);
+
+      // Stop polling after 4 minutes timeout
+      setTimeout(() => {
+        if (phonePePollTimer) {
+          clearInterval(phonePePollTimer);
+          if (btnPhonePePay) {
+            btnPhonePePay.disabled = false;
+            btnPhonePePay.innerHTML = `<span>Pay with PhonePe / UPI (Instant)</span>`;
+          }
+        }
+      }, 240000);
+
+    } catch (e) {
+      console.error('PhonePe initiation error:', e);
+      alert(`Could not start PhonePe checkout: ${e.message}`);
+      if (btnPhonePePay) {
+        btnPhonePePay.disabled = false;
+        btnPhonePePay.innerHTML = `<span>Pay with PhonePe / UPI (Instant)</span>`;
+      }
+    }
+  }
+
   // 3. Razorpay Checkout Modal
   function openRazorpayCheckout() {
     if (!currentOrderData || !selectedCar) {
@@ -382,6 +466,10 @@
   }
 
   // Event Listeners
+  if (btnPhonePePay) {
+    btnPhonePePay.addEventListener('click', openPhonePeCheckout);
+  }
+
   if (btnRazorpayPay) {
     btnRazorpayPay.addEventListener('click', openRazorpayCheckout);
   }

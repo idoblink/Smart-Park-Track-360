@@ -223,6 +223,8 @@ class ParkingState:
             return 0.0, 0.0
         try:
             entered_dt = datetime.datetime.fromisoformat(entered_ts_str)
+            if entered_dt.tzinfo is None:
+                entered_dt = entered_dt.astimezone()
             now_dt = datetime.datetime.now().astimezone()
             duration_s = max(0.0, (now_dt - entered_dt).total_seconds())
             duration_min = duration_s / 60.0

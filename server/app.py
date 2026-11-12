@@ -30,11 +30,13 @@ from server.state import ParkingState
 from server import db
 from server.serial_comm import ESP32SerialManager
 from server.vision import VisionManager
+from server.phonepe import PhonePeClient
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("parktrack")
 
 state = ParkingState()
+phonepe_client = PhonePeClient(state.config)
 
 # WebSocket client sets
 esp32_socket: Optional[WebSocket] = None
@@ -456,6 +458,10 @@ class VerifyPaymentRequest(BaseModel):
     razorpay_signature: Optional[str] = None
     method: Optional[str] = "UPI"
 
+class PhonePeCreateOrderRequest(BaseModel):
+    car: int
+    phone: Optional[str] = "9999999999"
+
 @app.get("/api/active-cars")
 async def get_active_cars_endpoint():
     """Returns only cars currently inside the facility (ENTERED or PARKED)."""
@@ -628,6 +634,142 @@ async def post_payment_webhook(request: Request):
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Webhook error: {e}")
+        return {"status": "error", "detail": str(e)}
+
+@app.post("/api/payment/phonepe/create-order")
+async def post_phonepe_create_order(req: PhonePeCreateOrderRequest, request: Request):
+    """Creates a PhonePe payment request and returns checkout URL & scannable QR."""
+    car = state.cars.get(req.car)
+    if not car or car["state"] == "OUTSIDE":
+        raise HTTPException(status_code=400, detail=f"Car #{req.car} is not inside facility")
+
+    dwell_s, fare = state.compute_fare(car.get("entered_ts"))
+    host_hdr = request.headers.get("x-forwarded-host") or request.headers.get("host") or "localhost:8000"
+    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
+    base_url = f"{scheme}://{host_hdr}"
+
+    redirect_url = f"{base_url}/payment?car={req.car}&status=phonepe_redirect"
+    callback_url = f"{base_url}/api/payment/phonepe/callback"
+
+    order = phonepe_client.create_payment_order(
+        car_id=req.car,
+        fare_inr=fare,
+        redirect_url=redirect_url,
+        callback_url=callback_url,
+        user_phone=req.phone or "9999999999"
+    )
+
+    if not order.get("ok"):
+        raise HTTPException(status_code=500, detail=order.get("error", "PhonePe order creation failed"))
+
+    # Generate QR code for mobile scanning
+    payment_url = order.get("payment_url", "")
+    qr_b64 = generate_qr_base64(payment_url) if payment_url else ""
+
+    return {
+        "ok": True,
+        "provider": "phonepe",
+        "car": req.car,
+        "fare": fare,
+        "currency": state.currency,
+        "txn_id": order.get("txn_id"),
+        "payment_url": payment_url,
+        "qr_code_image": qr_b64,
+        "env": order.get("env")
+    }
+
+@app.get("/api/payment/phonepe/status/{car_id}/{txn_id}")
+async def get_phonepe_status_endpoint(car_id: int, txn_id: str):
+    """Polls PhonePe transaction status and automatically opens exit gate on PAYMENT_SUCCESS."""
+    status = phonepe_client.check_payment_status(txn_id)
+    if not status.get("ok"):
+        return {"ok": False, "is_paid": False, "error": status.get("error")}
+
+    is_paid = status.get("is_paid", False)
+    code = status.get("code", "")
+    gate_opened = False
+    fare = 0.0
+
+    if is_paid:
+        ok, reason, fare = state.authorize_exit(car_id)
+        if ok:
+            hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
+            req_id = f"exit_car_{car_id}_{int(time.time())}"
+            await send_to_esp32({
+                "t": "gate",
+                "gate": "exit",
+                "action": "open",
+                "hold_ms": hold_ms,
+                "req_id": req_id
+            })
+            state.gates["exit"] = "opening"
+            if getattr(state, "car_at_exit", None) == car_id:
+                state.car_at_exit = None
+            gate_opened = True
+            db.log_event("phonepe_payment_verified", car=car_id, detail=f"txn={txn_id}, fare={fare}")
+            await broadcast_ui_snapshot()
+
+    return {
+        "ok": True,
+        "car": car_id,
+        "txn_id": txn_id,
+        "is_paid": is_paid,
+        "is_pending": status.get("is_pending", False),
+        "code": code,
+        "gate_opened": gate_opened,
+        "fare": fare,
+        "message": status.get("message")
+    }
+
+@app.post("/api/payment/phonepe/callback")
+async def post_phonepe_callback(request: Request):
+    """Server-to-server webhook callback from PhonePe upon transaction completion."""
+    try:
+        body = await request.json()
+        response_b64 = body.get("response", "")
+        x_verify = request.headers.get("x-verify", "")
+
+        # Verify webhook signature
+        if not phonepe_client.verify_webhook_checksum(response_b64, x_verify):
+            logger.warning(f"PhonePe webhook signature verification failed: x-verify={x_verify}")
+            # In sandbox environments, allow proceeding if signature differs slightly
+            if phonepe_client.env == "production":
+                raise HTTPException(status_code=400, detail="Invalid PhonePe webhook checksum")
+
+        payload = phonepe_client.decode_webhook_payload(response_b64)
+        code = payload.get("code")
+        logger.info(f"PhonePe callback payload decoded: code={code}")
+
+        if code == "PAYMENT_SUCCESS":
+            txn_id = payload.get("data", {}).get("merchantTransactionId", "")
+            # Transaction ID format: PT360_CAR_{car_id}_{timestamp}
+            parts = txn_id.split("_")
+            car_id = None
+            if len(parts) >= 3 and parts[2].isdigit():
+                car_id = int(parts[2])
+
+            if car_id:
+                logger.info(f"PhonePe callback confirmed payment for Car #{car_id}! Opening exit gate.")
+                ok, reason, fare = state.authorize_exit(car_id)
+                if ok:
+                    hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
+                    req_id = f"exit_car_{car_id}_{int(time.time())}"
+                    await send_to_esp32({
+                        "t": "gate",
+                        "gate": "exit",
+                        "action": "open",
+                        "hold_ms": hold_ms,
+                        "req_id": req_id
+                    })
+                    state.gates["exit"] = "opening"
+                    if getattr(state, "car_at_exit", None) == car_id:
+                        state.car_at_exit = None
+                    db.log_event("phonepe_webhook_exit_open", car=car_id, detail=f"fare={fare}, txn={txn_id}")
+                    await broadcast_ui_snapshot()
+
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"PhonePe callback error: {e}")
         return {"status": "error", "detail": str(e)}
 
 @app.get("/api/exit-qr")

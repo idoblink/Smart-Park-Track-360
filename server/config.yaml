@@ -33,6 +33,15 @@ razorpay:
   merchant_name: "ParkTrack 360"
   upi_id: "parktrack360@okaxis"
 
+phonepe:
+  enabled: true
+  merchant_id: "PGTESTPAYUAT86"
+  salt_key: "96434309-7796-489d-8924-ab56988a6076"
+  salt_index: "1"
+  env: "sandbox"                  # "sandbox" or "production"
+  sandbox_url: "https://api-preprod.phonepe.com/apis/pg-sandbox"
+  production_url: "https://api.phonepe.com/apis/hermes"
+
 vision:
   model: server/digit_classifier.pkl
   device: cpu
