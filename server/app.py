@@ -528,6 +528,17 @@ async def post_create_order_endpoint(req: CreateOrderRequest):
     upi_uri = f"upi://pay?pa={upi_id}&pn={pn_enc}&am={fare:.2f}&cu=INR&tn={tn_enc}"
     qr_b64 = generate_qr_base64(upi_uri)
 
+    # PhonePe order initiation for instant phone scanning & simulator auto-opening
+    phonepe_order = phonepe_client.create_payment_order(
+        car_id=req.car,
+        fare_inr=fare,
+        redirect_url=f"http://localhost:8000/payment?car={req.car}",
+        callback_url=f"http://localhost:8000/api/payment/phonepe/callback"
+    )
+    phonepe_url = phonepe_order.get("payment_url", "")
+    phonepe_txn_id = phonepe_order.get("txn_id", "")
+    phonepe_qr_b64 = generate_qr_base64(phonepe_url) if phonepe_url else ""
+
     return {
         "ok": True,
         "car": req.car,
@@ -542,6 +553,9 @@ async def post_create_order_endpoint(req: CreateOrderRequest):
         "upi_id": upi_id,
         "upi_uri": upi_uri,
         "qr_code_image": qr_b64,
+        "phonepe_url": phonepe_url,
+        "phonepe_txn_id": phonepe_txn_id,
+        "phonepe_qr_image": phonepe_qr_b64,
         "is_live_gateway": is_live
     }
 

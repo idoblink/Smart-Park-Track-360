@@ -107,33 +107,47 @@
           STEP 3: SCAN & UNLOCK EXIT BARRIER
         </span>
         <h2 class="font-bebas" style="font-size: 2.2rem; color: #000; line-height: 1; margin-bottom: 0.5rem;">
-          DYNAMIC UPI & RAZORPAY QR
+          DYNAMIC PAYMENT QR
         </h2>
-        <p style="font-size: 0.85rem; color: #475569; margin-bottom: 1rem;">
-          Scan with Google Pay, PhonePe, Paytm, or BHIM. Barrier opens automatically on settlement.
+        <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.75rem;">
+          Scan with any mobile camera / UPI app. Barrier auto-opens upon successful confirmation.
         </p>
+
+        <!-- QR Type Selector Tabs -->
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <button type="button" id="tabPhonePeQR" style="flex: 1; padding: 0.45rem 0.5rem; font-size: 0.75rem; font-weight: 800; border-radius: 5px; border: 1px solid #5f259f; background: #5f259f; color: #fff; cursor: pointer;">
+            ⚡ PhonePe Auto-Open QR
+          </button>
+          <button type="button" id="tabDirectUPIQR" style="flex: 1; padding: 0.45rem 0.5rem; font-size: 0.75rem; font-weight: 800; border-radius: 5px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; cursor: pointer;">
+            🏦 Direct HDFC Bank UPI
+          </button>
+        </div>
 
         <!-- Dynamic QR Container: Real scannable PNG from Python qrcode generator -->
         <div class="qr-box" id="qrContainer">
           <div style="font-size: 0.8rem; color: #94a3b8; padding: 1rem;">Generating dynamic payment QR...</div>
         </div>
 
-        <div style="font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; color: #0f172a; margin-bottom: 0.2rem;">
-          UPI ID: <span style="color: #2563eb;" id="upiIdDisplay">parktrack360@okaxis</span>
+        <div style="font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; color: #0f172a; margin-bottom: 0.2rem;" id="qrSubtitleText">
+          Scan with Phone Camera & Tap "SUCCESS"
         </div>
         <div style="font-size: 0.78rem; color: #64748b; margin-bottom: 1.25rem;">
           Amount: <strong style="color: #000; font-size: 1.1rem;" id="qrAmountText">₹50.00</strong>
         </div>
 
-        <!-- Payment Actions: Strict Cryptographic Gateway Only -->
+        <!-- Payment Actions -->
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-          <button class="btn btn-primary" id="btnPhonePePay" style="width: 100%; padding: 0.95rem 1.5rem; font-size: 0.9rem; font-weight: 700; background: #5f259f; border-color: #5f259f; color: #fff; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 15px rgba(95, 37, 159, 0.35);">
-            <span>Pay with PhonePe / UPI (Auto-Clear)</span>
+          <button class="btn btn-primary" id="btnPhonePePay" style="width: 100%; padding: 0.9rem 1.5rem; font-size: 0.88rem; font-weight: 700; background: #5f259f; border-color: #5f259f; color: #fff; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 15px rgba(95, 37, 159, 0.35);">
+            <span>Pay with PhonePe Simulator (Instant Open)</span>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
           </button>
 
-          <button class="btn btn-dark" id="btnRazorpayPay" style="width: 100%; padding: 0.8rem 1.5rem; font-size: 0.82rem; background: #0f172a; border-color: #334155; color: #cbd5e1;">
+          <button class="btn btn-dark" id="btnRazorpayPay" style="width: 100%; padding: 0.75rem 1.5rem; font-size: 0.82rem; background: #0f172a; border-color: #334155; color: #cbd5e1;">
             <span>Pay with Razorpay / Cards / Netbanking</span>
+          </button>
+
+          <button class="btn btn-dark" id="btnVerifyManual" style="width: 100%; padding: 0.7rem 1.5rem; font-size: 0.8rem; background: #1e293b; border-color: #475569; color: #f1f5f9;">
+            <span>I Scanned QR & Paid • Confirm & Open Gate</span>
           </button>
         </div>
 

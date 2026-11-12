@@ -29,9 +29,14 @@
   const qrContainer = document.getElementById('qrContainer');
   const qrAmountText = document.getElementById('qrAmountText');
   const upiIdDisplay = document.getElementById('upiIdDisplay');
+  const qrSubtitleText = document.getElementById('qrSubtitleText');
+  const tabPhonePeQR = document.getElementById('tabPhonePeQR');
+  const tabDirectUPIQR = document.getElementById('tabDirectUPIQR');
   const btnPhonePePay = document.getElementById('btnPhonePePay');
   const btnRazorpayPay = document.getElementById('btnRazorpayPay');
   const btnVerifyManual = document.getElementById('btnVerifyManual');
+
+  let currentQrMode = 'phonepe'; // 'phonepe' or 'direct'
 
   const checkoutView = document.getElementById('checkoutView');
   const receiptView = document.getElementById('receiptView');
@@ -223,17 +228,18 @@
     const fare = order.fare || 50.0;
     if (billTotalAmount) billTotalAmount.textContent = `₹${fare.toFixed(2)}`;
     if (qrAmountText) qrAmountText.textContent = `₹${fare.toFixed(2)}`;
-    if (upiIdDisplay) upiIdDisplay.textContent = order.upi_id || 'parktrack360@okaxis';
 
-    // Render real scannable QR Code image
-    if (qrContainer && order.qr_code_image) {
-      qrContainer.innerHTML = `
-        <img src="${order.qr_code_image}" 
-             alt="Scannable UPI QR Code" 
-             style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />
-      `;
+    updateQrDisplay();
+
+    // Start background watcher so scanning PhonePe QR with phone camera auto-opens gate!
+    if (order.phonepe_txn_id) {
+      startPhonePeBackgroundWatcher(order.car, order.phonepe_txn_id);
     }
 
+    if (btnPhonePePay) {
+      btnPhonePePay.disabled = false;
+      btnPhonePePay.style.opacity = '1';
+    }
     if (btnRazorpayPay) {
       btnRazorpayPay.disabled = false;
       btnRazorpayPay.style.opacity = '1';
@@ -244,6 +250,67 @@
     }
 
     startDwellTicker(order.dwell_s || 0);
+  }
+
+  function updateQrDisplay() {
+    if (!currentOrderData || !qrContainer) return;
+    
+    if (currentQrMode === 'phonepe' && currentOrderData.phonepe_qr_image) {
+      qrContainer.innerHTML = `
+        <img src="${currentOrderData.phonepe_qr_image}" 
+             alt="PhonePe Simulator QR" 
+             style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />
+      `;
+      if (qrSubtitleText) qrSubtitleText.textContent = 'Scan with Phone Camera & Tap "SUCCESS"';
+      if (tabPhonePeQR) {
+        tabPhonePeQR.style.background = '#5f259f';
+        tabPhonePeQR.style.color = '#fff';
+        tabPhonePeQR.style.borderColor = '#5f259f';
+      }
+      if (tabDirectUPIQR) {
+        tabDirectUPIQR.style.background = '#f8fafc';
+        tabDirectUPIQR.style.color = '#475569';
+        tabDirectUPIQR.style.borderColor = '#cbd5e1';
+      }
+    } else {
+      qrContainer.innerHTML = `
+        <img src="${currentOrderData.qr_code_image}" 
+             alt="Direct HDFC Bank UPI QR" 
+             style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />
+      `;
+      if (qrSubtitleText) qrSubtitleText.textContent = 'UPI: ' + (currentOrderData.upi_id || 'haraswarup.m.ramesh@okhdfcbank');
+      if (tabDirectUPIQR) {
+        tabDirectUPIQR.style.background = '#0f172a';
+        tabDirectUPIQR.style.color = '#fff';
+        tabDirectUPIQR.style.borderColor = '#0f172a';
+      }
+      if (tabPhonePeQR) {
+        tabPhonePeQR.style.background = '#f8fafc';
+        tabPhonePeQR.style.color = '#475569';
+        tabPhonePeQR.style.borderColor = '#cbd5e1';
+      }
+    }
+  }
+
+  let phonePeBackgroundWatcherTimer = null;
+  function startPhonePeBackgroundWatcher(carId, txnId) {
+    if (phonePeBackgroundWatcherTimer) clearInterval(phonePeBackgroundWatcherTimer);
+    if (!txnId) return;
+
+    phonePeBackgroundWatcherTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/payment/phonepe/status/${carId}/${txnId}`);
+        const data = await res.json();
+        if (data.ok && data.is_paid) {
+          clearInterval(phonePeBackgroundWatcherTimer);
+          showReceipt({
+            receipt_id: `PHON-${carId}-${Date.now().toString().slice(-6)}`,
+            car: carId,
+            fare: data.fare || currentOrderData?.fare || 50.0
+          }, 'PhonePe Simulator (Phone Scan Verified)');
+        }
+      } catch (err) {}
+    }, 2000);
   }
 
   function renderVehicleFallback(v) {
@@ -466,6 +533,20 @@
   }
 
   // Event Listeners
+  if (tabPhonePeQR) {
+    tabPhonePeQR.addEventListener('click', () => {
+      currentQrMode = 'phonepe';
+      updateQrDisplay();
+    });
+  }
+
+  if (tabDirectUPIQR) {
+    tabDirectUPIQR.addEventListener('click', () => {
+      currentQrMode = 'direct';
+      updateQrDisplay();
+    });
+  }
+
   if (btnPhonePePay) {
     btnPhonePePay.addEventListener('click', openPhonePeCheckout);
   }
