@@ -7,3 +7,4 @@ if __name__ == "__main__":
     host = os.environ.get("HOST", "0.0.0.0")
     print(f"[ParkTrack 360] Starting server on {host}:{port} (Python {sys.version.split()[0]})...")
     uvicorn.run("server.app:app", host=host, port=port, log_level="info")
+
