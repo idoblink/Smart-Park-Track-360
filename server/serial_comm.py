@@ -11,8 +11,13 @@ import json
 import logging
 import threading
 from typing import Optional, Callable, Dict, Any
-import serial
-import serial.tools.list_ports
+try:
+    import serial
+    import serial.tools.list_ports
+    HAS_SERIAL = True
+except ImportError:
+    serial = None
+    HAS_SERIAL = False
 
 logger = logging.getLogger("parktrack.serial")
 
@@ -33,6 +38,8 @@ class ESP32SerialManager:
 
     def find_esp32_port(self) -> Optional[str]:
         """Finds active ESP32 COM port."""
+        if not HAS_SERIAL or not serial:
+            return None
         ports = list(serial.tools.list_ports.comports())
         if not ports:
             return None
