@@ -18,21 +18,30 @@ gate:
 entered_warn_s: 120
 
 pricing:
-  first_hour_fee: 40.0         # First hour rate in INR
-  additional_hourly_rate: 20.0 # Rate per additional hour in INR
-  base_fee: 40.0               # Backward compatibility alias
-  hourly_rate: 20.0            # Backward compatibility alias
+  base_hours: 3.0              # First 3 hours covered under base fee
+  base_fee: 50.0               # 50 INR for 3 hours
+  additional_hourly_rate: 20.0 # 20 INR per extra hour after 3 hours
+  first_hour_fee: 50.0         # Alias for backward compatibility
+  hourly_rate: 20.0            # Alias for backward compatibility
   grace_period_min: 0.0        # Grace period in minutes
   currency: "INR"
 
+razorpay:
+  enabled: true
+  key_id: "rzp_test_TzJBfZwN0WuEpn"
+  key_secret: "MqSzY0DpGycF7ltZeVHLrFmx"
+  merchant_name: "ParkTrack 360"
+  upi_id: "parktrack360@okaxis"
+
 vision:
-  model: vision/best.onnx
+  model: server/digit_classifier.pkl
   device: cpu
   imgsz: 640
   max_fps: 10
-  stable_frames: 5
-  min_conf: 0.70
-  min_box_px: 24
+  stable_frames: 3
+  min_conf: 0.75
+  min_paper_contrast: 25
+  min_paper_brightness: 100
 
 camera:
   # Camera Mode:

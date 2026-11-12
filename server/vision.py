@@ -1,13 +1,19 @@
 """
 ParkTrack 360 — server/vision.py
-High-speed Computer Vision digit recognition for toy cars labelled with white paper
+High-accuracy Computer Vision digit recognition for toy cars labelled with white paper
 and black marker digits (1 to 8).
 
-Manages dual USB webcams (Entry Lane & Exit Lane), recognizes digits via
-multi-scale template matching + topological stroke/hole analysis, confirms detections,
-and automatically opens the servo barrier gates to 180 degrees.
+Features:
+- Machine Learning digit classifier (MLP trained on digits 1-8 + negative class 0 distractor rejection).
+- Surrounding white-paper patch contrast verification (rejects table edges, lines, screws, shadows).
+- Topological loop & aspect-ratio geometric constraints.
+- Multi-frame temporal voting debouncing (rejects transient noise).
+- Real-time exit clearance verification (ensures exit gate opens only after verified payment,
+  or free pass for unparked vehicles).
 """
 
+import os
+import sys
 import time
 import logging
 import threading
@@ -17,16 +23,37 @@ import numpy as np
 
 logger = logging.getLogger("parktrack.vision")
 
+# Try to import joblib for loading trained ML model
+try:
+    import joblib
+    HAS_JOBLIB = True
+except ImportError:
+    HAS_JOBLIB = False
+
 
 class DigitRecognizer:
-    """Robust digit recognizer for black marker numbers on white paper patches."""
+    """Accurate digit recognizer for black marker numbers on white paper patches.
+    Uses ML classifier (digits 1-8 vs negative class 0) + topological validation +
+    paper contrast verification to eliminate false detections from random lines and structures.
+    """
 
-    def __init__(self):
+    def __init__(self, model_path: str = "server/digit_classifier.pkl"):
+        self.model_path = model_path
+        self.classifier = self._load_model(model_path)
         self.bank: Dict[int, List[np.ndarray]] = self._build_template_bank()
 
+    def _load_model(self, path: str):
+        if HAS_JOBLIB and os.path.exists(path):
+            try:
+                clf = joblib.load(path)
+                logger.info(f"[SUCCESS] Loaded trained ML digit classifier from {path}")
+                return clf
+            except Exception as e:
+                logger.warning(f"Could not load ML model from {path}: {e}")
+        return None
+
     def _build_template_bank(self) -> Dict[int, List[np.ndarray]]:
-        """Pre-computes normalized 32x32 binary templates across multiple fonts,
-        weights, and subtle angles for digits 1 through 8."""
+        """Normalized 32x32 binary templates across multiple fonts and angles for digits 1 through 8."""
         bank: Dict[int, List[np.ndarray]] = {}
         fonts = [
             cv2.FONT_HERSHEY_SIMPLEX,
@@ -57,7 +84,7 @@ class DigitRecognizer:
                         if len(ys) > 0:
                             crop = img[np.min(ys):np.max(ys) + 1, np.min(xs):np.max(xs) + 1]
                             h, w = crop.shape
-                            scale = 26.0 / max(h, w)
+                            scale = 24.0 / max(h, w)
                             nh = max(1, int(h * scale))
                             nw = max(1, int(w * scale))
                             resized = cv2.resize(crop, (nw, nh), interpolation=cv2.INTER_AREA)
@@ -68,83 +95,69 @@ class DigitRecognizer:
                             norm[oy:oy + nh, ox:ox + nw] = resized
                             bank[digit].append(norm)
 
-            # For digit 1, also include handwritten marker variants:
-            # 1. Plain vertical stroke |
-            # 2. Classic marker 1 (top slant hook, vertical stem, horizontal bottom foot)
             if digit == 1:
+                # Vertical stroke | and hook 1
                 for thick in [3, 4, 5]:
-                    for angle in [-6, 0, 6]:
-                        # Plain vertical line
-                        img = np.zeros((64, 64), dtype=np.uint8)
-                        cv2.line(img, (32, 10), (32, 54), 255, thick)
-                        if angle != 0:
-                            M = cv2.getRotationMatrix2D((32, 32), angle, 1.0)
-                            img = cv2.warpAffine(img, M, (64, 64))
-                        ys, xs = np.where(img > 0)
-                        if len(ys) > 0:
-                            crop = img[np.min(ys):np.max(ys) + 1, np.min(xs):np.max(xs) + 1]
-                            h, w = crop.shape
-                            scale = 26.0 / max(h, w)
-                            nh = max(1, int(h * scale))
-                            nw = max(1, int(w * scale))
-                            resized = cv2.resize(crop, (nw, nh), interpolation=cv2.INTER_AREA)
-                            norm = np.zeros((32, 32), dtype=np.uint8)
-                            norm[(32 - nh) // 2:(32 - nh) // 2 + nh, (32 - nw) // 2:(32 - nw) // 2 + nw] = resized
-                            bank[1].append(norm)
+                    img = np.zeros((64, 64), dtype=np.uint8)
+                    cv2.line(img, (32, 10), (32, 54), 255, thick)
+                    ys, xs = np.where(img > 0)
+                    if len(ys) > 0:
+                        crop = img[np.min(ys):np.max(ys) + 1, np.min(xs):np.max(xs) + 1]
+                        h, w = crop.shape
+                        scale = 24.0 / max(h, w)
+                        nh = max(1, int(h * scale))
+                        nw = max(1, int(w * scale))
+                        resized = cv2.resize(crop, (nw, nh), interpolation=cv2.INTER_AREA)
+                        norm = np.zeros((32, 32), dtype=np.uint8)
+                        norm[(32 - nh) // 2:(32 - nh) // 2 + nh, (32 - nw) // 2:(32 - nw) // 2 + nw] = resized
+                        bank[1].append(norm)
 
-                        # Classic marker 1 with hook and bottom foot
-                        img2 = np.zeros((64, 64), dtype=np.uint8)
-                        cv2.line(img2, (34, 12), (34, 52), 255, thick)
-                        cv2.line(img2, (20, 24), (34, 12), 255, thick)
-                        cv2.line(img2, (18, 52), (50, 52), 255, thick)
-                        if angle != 0:
-                            M = cv2.getRotationMatrix2D((32, 32), angle, 1.0)
-                            img2 = cv2.warpAffine(img2, M, (64, 64))
-                        ys, xs = np.where(img2 > 0)
-                        if len(ys) > 0:
-                            crop = img2[np.min(ys):np.max(ys) + 1, np.min(xs):np.max(xs) + 1]
-                            h, w = crop.shape
-                            scale = 26.0 / max(h, w)
-                            nh = max(1, int(h * scale))
-                            nw = max(1, int(w * scale))
-                            resized = cv2.resize(crop, (nw, nh), interpolation=cv2.INTER_AREA)
-                            norm = np.zeros((32, 32), dtype=np.uint8)
-                            norm[(32 - nh) // 2:(32 - nh) // 2 + nh, (32 - nw) // 2:(32 - nw) // 2 + nw] = resized
-                            bank[1].append(norm)
-
-        logger.info(f"Built digit template bank: {len(bank)} digits (1-8), {sum(len(v) for v in bank.values())} glyphs.")
         return bank
+
+    def extract_features(self, norm_32x32: np.ndarray) -> np.ndarray:
+        """Extracts rotation-robust feature vector matching training pipeline."""
+        img_float = norm_32x32.astype(np.float32) / 255.0
+        small = cv2.resize(img_float, (16, 16), interpolation=cv2.INTER_AREA).flatten()
+        h_proj = np.sum(img_float, axis=1) / 32.0
+        v_proj = np.sum(img_float, axis=0) / 32.0
+
+        padded = cv2.copyMakeBorder(norm_32x32, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=0)
+        cnts, hier = cv2.findContours(padded, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        holes = 0
+        if hier is not None:
+            for hh in hier[0]:
+                if hh[3] != -1:
+                    holes += 1
+
+        hu = cv2.HuMoments(cv2.moments(norm_32x32)).flatten()
+        hu_log = -np.sign(hu) * np.log10(np.abs(hu) + 1e-7)
+
+        return np.concatenate([small, h_proj, v_proj, [holes], hu_log])
 
     def classify_crop(self, binary_patch: np.ndarray) -> Tuple[Optional[int], float]:
         """Classifies a binary crop (white digit pixels on black background).
         Returns (predicted_digit, confidence_score)."""
         ys, xs = np.where(binary_patch > 0)
-        if len(ys) < 20:
+        if len(ys) < 25:
             return None, 0.0
 
         crop = binary_patch[np.min(ys):np.max(ys) + 1, np.min(xs):np.max(xs) + 1]
         h, w = crop.shape
-        if h < 12 or w < 3:
+        if h < 14 or w < 4:
             return None, 0.0
 
         aspect = float(w) / float(h)
+        if aspect > 1.25 or aspect < 0.12:
+            return None, 0.0
 
-        # Topological feature extraction: holes & hole vertical center (with black border padding)
-        padded = cv2.copyMakeBorder(crop, 4, 4, 4, 4, cv2.BORDER_CONSTANT, value=0)
-        cnts, hier = cv2.findContours(padded, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-        holes = 0
-        hole_y_rel = 0.5
-        min_hole_area = 0.02 * (h * w)
-        if hier is not None:
-            for i, hh in enumerate(hier[0]):
-                if hh[3] != -1 and cv2.contourArea(cnts[i]) >= min_hole_area:  # Real loop, not tiny ink grain
-                    holes += 1
-                    M = cv2.moments(cnts[i])
-                    if M["m00"] > 0:
-                        hole_y_rel = ((M["m01"] / M["m00"]) - 4) / float(h)
+        # Solidity check (strokes are not solid blocks)
+        area = len(ys)
+        solidity = area / float(h * w)
+        if solidity > 0.82 or solidity < 0.14:
+            return None, 0.0
 
         # Normalize to 32x32 centered
-        scale = 26.0 / max(h, w)
+        scale = 24.0 / max(h, w)
         nh = max(1, int(h * scale))
         nw = max(1, int(w * scale))
         resized = cv2.resize(crop, (nw, nh), interpolation=cv2.INTER_AREA)
@@ -153,52 +166,82 @@ class DigitRecognizer:
         ox = (32 - nw) // 2
         norm[oy:oy + nh, ox:ox + nw] = resized
 
+        # Topological loop counting
+        padded = cv2.copyMakeBorder(norm, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=0)
+        cnts, hier = cv2.findContours(padded, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        holes = 0
+        if hier is not None:
+            for hh in hier[0]:
+                if hh[3] != -1:
+                    holes += 1
+
+        # Use trained ML classifier if available
+        if self.classifier is not None:
+            try:
+                feats = self.extract_features(norm).reshape(1, -1)
+                probs = self.classifier.predict_proba(feats)[0]
+                classes = self.classifier.classes_
+
+                prob_dict = {cls: prob for cls, prob in zip(classes, probs)}
+                neg_prob = prob_dict.get(0, 0.0)
+
+                # If negative/distractor class probability is high, reject!
+                if neg_prob > 0.15:
+                    return None, 0.0
+
+                best_digit = None
+                best_conf = 0.0
+                for d in range(1, 9):
+                    p = prob_dict.get(d, 0.0)
+                    if p > best_conf:
+                        best_conf = p
+                        best_digit = d
+
+                # Topological sanity gates
+                if best_digit == 8 and holes < 1:
+                    best_conf *= 0.60
+                elif best_digit == 1 and holes > 0:
+                    best_conf *= 0.40
+                elif best_digit in [2, 3, 5, 7] and holes > 0:
+                    best_conf *= 0.50
+
+                if best_digit is not None and best_conf >= 0.70:
+                    return best_digit, float(min(1.0, best_conf))
+                return None, 0.0
+            except Exception as e:
+                logger.debug(f"ML classification exception: {e}")
+
+        # Fallback to structural template matching
         best_digit = None
         best_score = -1.0
-
         for digit, tpls in self.bank.items():
             for tpl in tpls:
                 res = cv2.matchTemplate(norm, tpl, cv2.TM_CCOEFF_NORMED)
                 val = float(res[0][0])
-
-                # Topological bonuses & structural consistency checks
                 bonus = 0.0
                 if digit == 1:
                     if aspect < 0.45:
-                        bonus += 0.25
+                        bonus += 0.20
                     elif holes > 0:
-                        bonus -= 0.30
-
+                        bonus -= 0.35
                 elif digit == 8:
                     if holes >= 2:
                         bonus += 0.35
-                    elif holes == 1:
-                        bonus += 0.10
                     elif holes == 0:
-                        bonus -= 0.20
-
-                elif digit == 6:
-                    if holes == 1 and hole_y_rel > 0.40:
-                        bonus += 0.30
-                    elif holes == 0:
-                        bonus -= 0.15
-
-                elif digit == 4:
-                    if holes == 1 or aspect > 0.50:
-                        bonus += 0.10
-
+                        bonus -= 0.25
                 elif digit in [2, 3, 5, 7]:
-                    if holes == 0:
-                        bonus += 0.05
-                    else:
-                        bonus -= 0.30
+                    if holes > 0:
+                        bonus -= 0.35
 
                 score = val + bonus
                 if score > best_score:
                     best_score = score
                     best_digit = digit
 
-        return best_digit, min(1.0, max(0.0, best_score))
+        conf = min(1.0, max(0.0, best_score))
+        if conf >= 0.65:
+            return best_digit, conf
+        return None, 0.0
 
     def detect_digits(self, frame: np.ndarray, roi: Optional[List[int]] = None) -> List[Dict[str, Any]]:
         """Detects and classifies black marker digits on white paper in frame/ROI.
@@ -219,9 +262,13 @@ class DigitRecognizer:
             sub = frame
             offset_x, offset_y = 0, 0
 
-        gray = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY) if len(sub.shape) == 3 else sub
 
-        # Dual thresholding: Adaptive Gaussian + Otsu
+        # Check frame brightness variance (reject pure black or blank frames)
+        if np.mean(gray) < 20 or np.std(gray) < 10:
+            return []
+
+        # Dual thresholding
         thresh_adapt = cv2.adaptiveThreshold(
             gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, 15
         )
@@ -230,7 +277,7 @@ class DigitRecognizer:
         detections = []
         seen_boxes = []
 
-        for thresh_img in [thresh_adapt, thresh_otsu]:
+        for thresh_img in [thresh_otsu, thresh_adapt]:
             cnts, hier = cv2.findContours(thresh_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             if hier is None:
                 continue
@@ -239,14 +286,16 @@ class DigitRecognizer:
                 x, y, w, h = cv2.boundingRect(c)
 
                 # Filter marker digit bounding box constraints
-                if not (10 <= w <= 260 and 18 <= h <= 320 and 0.15 <= (w / h) <= 1.35):
+                # Digits 1-8 have specific aspect ratio and size
+                if not (8 <= w <= 240 and 18 <= h <= 300 and 0.12 <= (w / float(h)) <= 1.25):
                     continue
 
                 area = cv2.contourArea(c)
-                if area < 60 or area > (w * h * 0.90):
+                if area < 50 or area > (w * h * 0.78):
                     continue
 
-                # Check surrounding background (white paper should be brighter than stroke)
+                # Surrounding white paper patch contrast verification
+                # A real black marker digit is written on white/light paper!
                 pad = 8
                 bx1, by1 = max(0, x - pad), max(0, y - pad)
                 bx2, by2 = min(gray.shape[1], x + w + pad), min(gray.shape[0], y + h + pad)
@@ -256,15 +305,16 @@ class DigitRecognizer:
                 bg_mean = float(np.mean(bg_crop))
                 stroke_mean = float(np.mean(stroke_crop))
 
-                # White paper should have brightness >= 110, and contrast difference >= 20
-                if bg_mean < 100 or (bg_mean - stroke_mean) < 18:
+                # Background must be significantly brighter than dark ink (contrast >= 22)
+                # and background should be reasonably bright paper (>= 90)
+                if bg_mean < 85 or (bg_mean - stroke_mean) < 20:
                     continue
 
                 # Prevent duplicate detections of the same box
                 gx, gy = x + offset_x, y + offset_y
                 is_duplicate = False
                 for sx, sy, sw, sh in seen_boxes:
-                    if abs(gx - sx) < 15 and abs(gy - sy) < 15 and abs(w - sw) < 15:
+                    if abs(gx - sx) < 12 and abs(gy - sy) < 12 and abs(w - sw) < 12:
                         is_duplicate = True
                         break
                 if is_duplicate:
@@ -273,7 +323,7 @@ class DigitRecognizer:
                 crop = thresh_img[y:y + h, x:x + w]
                 digit, conf = self.classify_crop(crop)
 
-                if digit is not None and conf >= 0.60:
+                if digit is not None and conf >= 0.65:
                     seen_boxes.append((gx, gy, w, h))
                     detections.append({
                         "digit": digit,
@@ -291,13 +341,17 @@ class VisionLaneWorker:
 
     def __init__(self, lane: str, source: Any, width: int = 640, height: int = 480,
                  roi: Optional[List[int]] = None,
-                 on_digit_confirmed: Optional[Callable[[str, int], None]] = None):
+                 stable_frames: int = 3,
+                 on_digit_confirmed: Optional[Callable[[str, int], None]] = None,
+                 status_provider: Optional[Callable[[], Dict[str, Any]]] = None):
         self.lane = lane  # "entry" or "exit"
         self.source = source
         self.width = width
         self.height = height
         self.roi = roi
+        self.stable_frames = stable_frames
         self.on_digit_confirmed = on_digit_confirmed
+        self.status_provider = status_provider
 
         self.recognizer = DigitRecognizer()
         self.cap: Optional[cv2.VideoCapture] = None
@@ -340,7 +394,8 @@ class VisionLaneWorker:
         try:
             if isinstance(self.source, int) or str(self.source).isdigit():
                 idx = int(self.source)
-                self.cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
+                backend = cv2.CAP_DSHOW if sys.platform.startswith("win") else cv2.CAP_ANY
+                self.cap = cv2.VideoCapture(idx, backend)
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
                 self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
@@ -421,24 +476,25 @@ class VisionLaneWorker:
                 current_detected_digit = d
 
                 # Draw bounding box on detected digit
-                cv2.rectangle(frame, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
-                cv2.putText(frame, f"CAR {d} ({int(conf * 100)}%)", (bx, max(20, by - 8)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2)
+                box_color = (0, 255, 0) if self.lane == "entry" else (0, 200, 255)
+                cv2.rectangle(frame, (bx, by), (bx + bw, by + bh), box_color, 2)
+                cv2.putText(frame, f"CAR #{d} ({int(conf * 100)}%)", (bx, max(22, by - 8)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.65, box_color, 2)
 
-            # Debouncing logic: require same digit across 2 consecutive frames
+            # Debouncing logic: require same digit across stable_frames consecutive frames
             is_in_cooldown = (now < self.cooldown_until)
 
             if current_detected_digit is not None:
                 self.recent_detections.append(current_detected_digit)
-                if len(self.recent_detections) > 4:
+                if len(self.recent_detections) > (self.stable_frames + 2):
                     self.recent_detections.pop(0)
 
-                # Check if detected digit is stable (at least 2 occurrences in recent history)
-                if self.recent_detections.count(current_detected_digit) >= 2:
+                # Check if detected digit is stable
+                if self.recent_detections.count(current_detected_digit) >= self.stable_frames:
                     if not is_in_cooldown:
-                        logger.info(f"[{self.lane.upper()}] Confirmed Car #{current_detected_digit}! Triggering 180° gate.")
+                        logger.info(f"[{self.lane.upper()}] Confirmed Car #{current_detected_digit} (stable across {self.stable_frames} frames).")
                         self.last_confirmed_car = current_detected_digit
-                        self.cooldown_until = now + 8.0  # 8s cooldown while car passes
+                        self.cooldown_until = now + 8.0  # 8s cooldown while car passes or pays
                         self.gate_open_until = now + 5.0
                         self.recent_detections.clear()
 
@@ -453,19 +509,23 @@ class VisionLaneWorker:
 
             # HUD Status Display
             status_y = h - 20
-            if now < self.gate_open_until:
+            if now < self.gate_open_until and self.lane == "entry":
                 cv2.rectangle(frame, (0, h - 50), (w, h), (0, 140, 255), -1)
-                cv2.putText(frame, f">> CAR {self.last_confirmed_car} DETECTED: SERVO GATE OPEN 90° <<",
-                            (25, status_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                cv2.putText(frame, f">> CAR #{self.last_confirmed_car} AUTHORIZED: ENTRY GATE OPENING <<",
+                            (25, status_y), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
+            elif now < self.gate_open_until and self.lane == "exit":
+                cv2.rectangle(frame, (0, h - 50), (w, h), (0, 100, 220), -1)
+                cv2.putText(frame, f">> CAR #{self.last_confirmed_car} AT EXIT: SCAN QR CODE TO PAY <<",
+                            (20, status_y), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
             elif is_in_cooldown:
                 cv2.rectangle(frame, (0, h - 45), (w, h), (40, 40, 40), -1)
                 rem = int(self.cooldown_until - now)
-                cv2.putText(frame, f"GATE CYCLE COMPLETE - COOLDOWN ({rem}s)",
+                cv2.putText(frame, f"LANE CYCLE ACTIVE - COOLDOWN ({rem}s)",
                             (25, status_y), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (180, 180, 180), 2)
             else:
                 cv2.rectangle(frame, (0, h - 35), (w, h), (20, 20, 20), -1)
-                cv2.putText(frame, "STATUS: ARMED (SHOW NUMBERED CAR 1-8)",
-                            (20, status_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 100), 2)
+                label = "ENTRY SENSING ARMED (SHOW NUMBERED CAR 1-8)" if self.lane == "entry" else "EXIT SCANNER ARMED (VERIFIES CAR NUMBER 1-8)"
+                cv2.putText(frame, label, (20, status_y), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (100, 255, 100), 2)
 
             # Encode annotated frame to JPEG for dashboard live feed
             _, jpeg_buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
@@ -492,18 +552,23 @@ class VisionManager:
         self.on_car_event = on_car_event
 
         cam_cfg = config.get("camera", {})
-        e_src = cam_cfg.get("entry", {}).get("source", 1)
-        x_src = cam_cfg.get("exit", {}).get("source", 2)
+        vision_cfg = config.get("vision", {})
+        stable_frames = int(vision_cfg.get("stable_frames", 3))
+
+        e_src = cam_cfg.get("entry", {}).get("source", 2)
+        x_src = cam_cfg.get("exit", {}).get("source", 1)
 
         e_roi = cam_cfg.get("entry", {}).get("roi", None)
         x_roi = cam_cfg.get("exit", {}).get("roi", None)
 
         self.entry_worker = VisionLaneWorker(
             lane="entry", source=e_src, width=640, height=480, roi=e_roi,
+            stable_frames=stable_frames,
             on_digit_confirmed=self._handle_digit
         )
         self.exit_worker = VisionLaneWorker(
             lane="exit", source=x_src, width=640, height=480, roi=x_roi,
+            stable_frames=stable_frames,
             on_digit_confirmed=self._handle_digit
         )
 

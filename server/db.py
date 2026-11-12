@@ -40,7 +40,8 @@ def init_db(db_path: Path = DB_PATH):
             inside_s REAL,
             parked_s REAL,
             fare REAL DEFAULT 0.0,
-            payment_status TEXT DEFAULT 'PENDING'
+            payment_status TEXT DEFAULT 'PENDING',
+            has_parked INTEGER DEFAULT 0
         );
         """)
 
@@ -61,9 +62,17 @@ def init_db(db_path: Path = DB_PATH):
             state TEXT NOT NULL,
             slot TEXT,
             entered_ts TEXT,
-            visit_id INTEGER
+            visit_id INTEGER,
+            has_parked INTEGER DEFAULT 0
         );
         """)
+
+        # Migration: ensure has_parked column exists for existing DBs
+        for table in ["visits", "car_state"]:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN has_parked INTEGER DEFAULT 0")
+            except Exception:
+                pass
 
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS meta (
@@ -80,8 +89,8 @@ def init_db(db_path: Path = DB_PATH):
         if count == 0:
             for car_id in range(1, 9):
                 cursor.execute("""
-                    INSERT INTO car_state (car, state, slot, entered_ts, visit_id)
-                    VALUES (?, 'OUTSIDE', NULL, NULL, NULL)
+                    INSERT INTO car_state (car, state, slot, entered_ts, visit_id, has_parked)
+                    VALUES (?, 'OUTSIDE', NULL, NULL, NULL, 0)
                 """, (car_id,))
         
         # Seed default stats epoch
@@ -111,16 +120,28 @@ def get_recent_events(limit: int = 50, db_path: Path = DB_PATH) -> List[Dict[str
 def load_car_states(db_path: Path = DB_PATH) -> Dict[int, Dict[str, Any]]:
     with get_connection(db_path) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT car, state, slot, entered_ts, visit_id FROM car_state")
-        return {row["car"]: dict(row) for row in cursor.fetchall()}
+        cursor.execute("SELECT car, state, slot, entered_ts, visit_id, has_parked FROM car_state")
+        res = {}
+        for row in cursor.fetchall():
+            d = dict(row)
+            d["has_parked"] = bool(d.get("has_parked", 0))
+            res[d["car"]] = d
+        return res
 
-def save_car_state(car: int, state: str, slot: Optional[str] = None, entered_ts: Optional[str] = None, visit_id: Optional[int] = None, db_path: Path = DB_PATH):
+def save_car_state(car: int, state: str, slot: Optional[str] = None, entered_ts: Optional[str] = None, visit_id: Optional[int] = None, has_parked: bool = False, db_path: Path = DB_PATH):
     with get_connection(db_path) as conn:
         conn.cursor().execute("""
             UPDATE car_state
-            SET state = ?, slot = ?, entered_ts = ?, visit_id = ?
+            SET state = ?, slot = ?, entered_ts = ?, visit_id = ?, has_parked = ?
             WHERE car = ?
-        """, (state, slot, entered_ts, visit_id, car))
+        """, (state, slot, entered_ts, visit_id, 1 if has_parked else 0, car))
+        conn.commit()
+
+def mark_visit_parked(visit_id: int, db_path: Path = DB_PATH):
+    if not visit_id:
+        return
+    with get_connection(db_path) as conn:
+        conn.cursor().execute("UPDATE visits SET has_parked = 1 WHERE id = ?", (visit_id,))
         conn.commit()
 
 def start_visit(car: int, db_path: Path = DB_PATH) -> int:
@@ -128,8 +149,8 @@ def start_visit(car: int, db_path: Path = DB_PATH) -> int:
     with get_connection(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO visits (car, entry_ts, exit_ts, inside_s, parked_s, fare, payment_status)
-            VALUES (?, ?, NULL, NULL, 0.0, 0.0, 'PENDING')
+            INSERT INTO visits (car, entry_ts, exit_ts, inside_s, parked_s, fare, payment_status, has_parked)
+            VALUES (?, ?, NULL, NULL, 0.0, 0.0, 'PENDING', 0)
         """, (car, now_iso))
         conn.commit()
         return cursor.lastrowid

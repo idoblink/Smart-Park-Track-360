@@ -1,17 +1,21 @@
 /**
- * ParkTrack 360 — Dedicated Payment & Checkout Script (payment.js)
- * Real-time dwell calculation, dynamic SVG QR Code generation, and exit clearance.
+ * ParkTrack 360 — Autonomous Payment & QR Settlement Script (payment.js)
+ * Real-time dwell calculation, dynamic scannable UPI QR code generation,
+ * Razorpay Checkout SDK integration, and automated exit barrier gate clearance.
  */
 
 (function () {
   'use strict';
 
-  let selectedCar = 1;
+  let selectedCar = null;
   let carData = null;
+  let activeCarsList = [];
+  let currentOrderData = null;
   let dwellTimerInterval = null;
 
   // DOM Elements
-  const carButtons = document.querySelectorAll('.car-select-btn');
+  const checkoutCarGrid = document.getElementById('checkoutCarGrid');
+  const activeCountBadge = document.getElementById('activeCountBadge');
   const statusCarName = document.getElementById('statusCarName');
   const statusPill = document.getElementById('statusPill');
   const statusText = document.getElementById('statusText');
@@ -20,13 +24,13 @@
   const billSlotLocation = document.getElementById('billSlotLocation');
   const billDwellTime = document.getElementById('billDwellTime');
   const billHourlyRate = document.getElementById('billHourlyRate');
-  const billGraceDiscount = document.getElementById('billGraceDiscount');
   const billTotalAmount = document.getElementById('billTotalAmount');
 
   const qrContainer = document.getElementById('qrContainer');
   const qrAmountText = document.getElementById('qrAmountText');
-  const btnVerifyPayment = document.getElementById('btnVerifyPayment');
-  const btnFastagAutoPay = document.getElementById('btnFastagAutoPay');
+  const upiIdDisplay = document.getElementById('upiIdDisplay');
+  const btnRazorpayPay = document.getElementById('btnRazorpayPay');
+  const btnVerifyManual = document.getElementById('btnVerifyManual');
 
   const checkoutView = document.getElementById('checkoutView');
   const receiptView = document.getElementById('receiptView');
@@ -42,13 +46,91 @@
   // Parse URL query parameter (e.g. /payment?car=3)
   const urlParams = new URLSearchParams(window.location.search);
   const paramCar = parseInt(urlParams.get('car'), 10);
-  if (paramCar && paramCar >= 1 && paramCar <= 8) {
-    selectedCar = paramCar;
+
+  // 1. Fetch Active Cars (Only vehicles inside the facility)
+  async function loadActiveCars() {
+    try {
+      const res = await fetch('/api/active-cars');
+      if (!res.ok) throw new Error('Failed to load active vehicles');
+      const data = await res.json();
+      activeCarsList = data.active_cars || [];
+      const carAtExit = data.car_at_exit;
+
+      renderCarSelector(activeCarsList, carAtExit);
+
+      // Select target car: either from URL, or car at exit, or first available inside
+      if (paramCar && activeCarsList.some(c => c.car === paramCar)) {
+        selectedCar = paramCar;
+      } else if (carAtExit && activeCarsList.some(c => c.car === carAtExit)) {
+        selectedCar = carAtExit;
+      } else if (activeCarsList.length > 0 && !selectedCar) {
+        selectedCar = activeCarsList[0].car;
+      }
+
+      updateActiveButton();
+      if (selectedCar) {
+        loadCarOrderData(selectedCar);
+      } else {
+        renderNoActiveCars();
+      }
+    } catch (e) {
+      console.error('Error fetching active cars:', e);
+      renderFallbackGrid();
+    }
   }
 
-  // Update Active Button in Grid
-  function updateActiveCarButton() {
-    carButtons.forEach(btn => {
+  function renderCarSelector(cars, carAtExit) {
+    if (!checkoutCarGrid) return;
+    if (activeCountBadge) {
+      activeCountBadge.textContent = `${cars.length} Vehicle${cars.length === 1 ? '' : 's'} Inside`;
+    }
+
+    if (cars.length === 0) {
+      checkoutCarGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; padding: 1.5rem; text-align: center; background: #0a0a0a; border: 1px dashed var(--border-medium); border-radius: 6px; color: var(--text-muted); font-size: 0.85rem;">
+          No vehicles currently inside facility. All cars 1-8 are outside.
+        </div>
+      `;
+      return;
+    }
+
+    checkoutCarGrid.innerHTML = cars.map(c => {
+      const isExit = c.car === carAtExit;
+      const tag = isExit ? ' • AT EXIT' : (c.slot ? ` • ${c.slot}` : ' • In Deck');
+      return `
+        <button class="car-select-btn ${c.car === selectedCar ? 'active' : ''} ${isExit ? 'at-exit' : ''}" 
+                data-car="${c.car}" 
+                style="${isExit ? 'border-color: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);' : ''}">
+          Car #${c.car}${tag}
+        </button>
+      `;
+    }).join('');
+
+    // Attach click handlers
+    checkoutCarGrid.querySelectorAll('.car-select-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cId = parseInt(btn.getAttribute('data-car'), 10);
+        selectedCar = cId;
+        updateActiveButton();
+        loadCarOrderData(cId);
+      });
+    });
+  }
+
+  function renderFallbackGrid() {
+    if (!checkoutCarGrid) return;
+    let html = '';
+    for (let i = 1; i <= 8; i++) {
+      html += `<button class="car-select-btn ${i === 1 ? 'active' : ''}" data-car="${i}">Car #${i}</button>`;
+    }
+    checkoutCarGrid.innerHTML = html;
+    selectedCar = 1;
+    loadCarOrderData(1);
+  }
+
+  function updateActiveButton() {
+    if (!checkoutCarGrid) return;
+    checkoutCarGrid.querySelectorAll('.car-select-btn').forEach(btn => {
       const cId = parseInt(btn.getAttribute('data-car'), 10);
       if (cId === selectedCar) {
         btn.classList.add('active');
@@ -58,104 +140,126 @@
     });
   }
 
-  carButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      selectedCar = parseInt(btn.getAttribute('data-car'), 10);
-      updateActiveCarButton();
-      loadVehicleData();
-    });
-  });
-
-  // Load Vehicle Session Data
-  async function loadVehicleData() {
-    try {
-      const res = await fetch(`/api/vehicle/${selectedCar}`);
-      if (!res.ok) {
-        throw new Error('Vehicle not found');
-      }
-      carData = await res.json();
-      renderVehicleData();
-    } catch (e) {
-      console.error('Error fetching vehicle status:', e);
-      renderFallback();
-    }
-  }
-
-  function renderVehicleData() {
-    if (!carData) return;
-
-    if (statusCarName) statusCarName.textContent = `Car #${carData.car}`;
-    if (billBaseFee) billBaseFee.textContent = `₹${(carData.first_hour_fee || 40).toFixed(2)}`;
-    if (billHourlyRate) billHourlyRate.textContent = `+₹${(carData.additional_hourly_rate || 20).toFixed(2)} / hr`;
-
-    if (carData.state === 'OUTSIDE') {
-      if (statusPill) {
-        statusPill.textContent = 'NOT IN FACILITY';
-        statusPill.className = 'slot-status-pill fault';
-      }
-      if (statusText) statusText.textContent = `Car #${carData.car} is currently outside the parking lot.`;
-      if (billSlotLocation) billSlotLocation.textContent = 'None';
-      if (billDwellTime) billDwellTime.textContent = '00:00:00';
-      if (billTotalAmount) billTotalAmount.textContent = '₹0.00';
-      if (qrAmountText) qrAmountText.textContent = '₹0.00';
-      renderQRCode(0);
-      if (btnVerifyPayment) {
-        btnVerifyPayment.disabled = true;
-        btnVerifyPayment.style.opacity = '0.5';
-      }
-      if (btnFastagAutoPay) {
-        btnFastagAutoPay.disabled = true;
-        btnFastagAutoPay.style.opacity = '0.5';
-      }
-    } else {
-      if (statusPill) {
-        statusPill.textContent = carData.slot ? `PARKED IN ${carData.slot}` : 'ENTERED FACILITY';
-        statusPill.className = 'slot-status-pill occupied';
-      }
-      const floorName = carData.slot && carData.slot.startsWith('F') ? 'First Floor' : 'Ground Floor';
-      if (statusText) statusText.textContent = `Checked in at ${formatTime(carData.entered_ts)} • ${floorName} (Bay ${carData.slot || 'Pending'}).`;
-      if (billSlotLocation) billSlotLocation.textContent = `${floorName} (${carData.slot || 'Navigating'})`;
-
-      const fare = carData.current_fare || 40.0;
-      if (billTotalAmount) billTotalAmount.textContent = `₹${fare.toFixed(2)}`;
-      if (qrAmountText) qrAmountText.textContent = `₹${fare.toFixed(2)}`;
-      renderQRCode(fare);
-
-      if (btnVerifyPayment) {
-        btnVerifyPayment.disabled = false;
-        btnVerifyPayment.style.opacity = '1';
-      }
-      if (btnFastagAutoPay) {
-        btnFastagAutoPay.disabled = false;
-        btnFastagAutoPay.style.opacity = '1';
-      }
-    }
-
-    startDwellTicker();
-  }
-
-  function renderFallback() {
-    if (statusCarName) statusCarName.textContent = `Car #${selectedCar}`;
+  function renderNoActiveCars() {
+    if (statusCarName) statusCarName.textContent = 'No Cars Inside';
     if (statusPill) {
-      statusPill.textContent = 'DEMO SESSION';
+      statusPill.textContent = 'FACILITY EMPTY';
+      statusPill.className = 'slot-status-pill vacant';
+    }
+    if (statusText) statusText.textContent = 'Drive a car to the entry gate to initiate smart parking.';
+    if (billSlotLocation) billSlotLocation.textContent = 'None';
+    if (billDwellTime) billDwellTime.textContent = '00:00:00';
+    if (billTotalAmount) billTotalAmount.textContent = '₹0.00';
+    if (qrAmountText) qrAmountText.textContent = '₹0.00';
+    if (qrContainer) {
+      qrContainer.innerHTML = '<div style="font-size:0.8rem;color:#94a3b8;padding:1.5rem;text-align:center;">No payment pending</div>';
+    }
+    if (btnRazorpayPay) btnRazorpayPay.disabled = true;
+    if (btnVerifyManual) btnVerifyManual.disabled = true;
+  }
+
+  // 2. Fetch Razorpay Order & Scannable QR Code for Selected Car
+  async function loadCarOrderData(carId) {
+    if (!carId) return;
+    try {
+      if (qrContainer) {
+        qrContainer.innerHTML = '<div style="font-size:0.8rem;color:#64748b;padding:1.5rem;text-align:center;">Generating dynamic QR...</div>';
+      }
+
+      const res = await fetch('/api/payment/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ car: carId })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Could not load vehicle session');
+      }
+
+      currentOrderData = await res.json();
+      carData = currentOrderData;
+      renderOrderView(currentOrderData);
+    } catch (e) {
+      console.warn('Error loading order data:', e.message);
+      // Fallback vehicle status fetch
+      fetchFallbackVehicle(carId);
+    }
+  }
+
+  async function fetchFallbackVehicle(carId) {
+    try {
+      const res = await fetch(`/api/vehicle/${carId}`);
+      if (res.ok) {
+        const data = await res.json();
+        carData = data;
+        renderVehicleFallback(data);
+      }
+    } catch (e) {
+      console.error('Fallback error:', e);
+    }
+  }
+
+  function renderOrderView(order) {
+    if (!order) return;
+
+    if (statusCarName) statusCarName.textContent = `Car #${order.car}`;
+    if (billBaseFee) billBaseFee.textContent = `₹50.00 (First 3 hrs)`;
+    if (billHourlyRate) billHourlyRate.textContent = `+₹20.00 / hr extra`;
+
+    const floorName = order.slot && order.slot.startsWith('F') ? 'First Floor' : 'Ground Floor';
+    const bayDesc = order.slot ? `${floorName} (Bay ${order.slot})` : 'Entry Deck Level';
+
+    if (statusPill) {
+      statusPill.textContent = order.slot ? `PARKED IN ${order.slot}` : 'IN FACILITY';
       statusPill.className = 'slot-status-pill occupied';
     }
-    if (statusText) statusText.textContent = 'Live session retrieved. First hour rate applied.';
-    if (billTotalAmount) billTotalAmount.textContent = '₹40.00';
-    if (qrAmountText) qrAmountText.textContent = '₹40.00';
-    renderQRCode(40);
+    if (statusText) {
+      statusText.textContent = `Ultrasonic occupancy verified • Location: ${bayDesc}.`;
+    }
+    if (billSlotLocation) billSlotLocation.textContent = bayDesc;
+
+    const fare = order.fare || 50.0;
+    if (billTotalAmount) billTotalAmount.textContent = `₹${fare.toFixed(2)}`;
+    if (qrAmountText) qrAmountText.textContent = `₹${fare.toFixed(2)}`;
+    if (upiIdDisplay) upiIdDisplay.textContent = order.upi_id || 'parktrack360@okaxis';
+
+    // Render real scannable QR Code image
+    if (qrContainer && order.qr_code_image) {
+      qrContainer.innerHTML = `
+        <img src="${order.qr_code_image}" 
+             alt="Scannable UPI QR Code" 
+             style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />
+      `;
+    }
+
+    if (btnRazorpayPay) {
+      btnRazorpayPay.disabled = false;
+      btnRazorpayPay.style.opacity = '1';
+    }
+    if (btnVerifyManual) {
+      btnVerifyManual.disabled = false;
+      btnVerifyManual.style.opacity = '1';
+    }
+
+    startDwellTicker(order.dwell_s || 0);
   }
 
-  function startDwellTicker() {
+  function renderVehicleFallback(v) {
+    if (statusCarName) statusCarName.textContent = `Car #${v.car}`;
+    if (billTotalAmount) billTotalAmount.textContent = `₹${(v.current_fare || 50).toFixed(2)}`;
+    if (qrAmountText) qrAmountText.textContent = `₹${(v.current_fare || 50).toFixed(2)}`;
+    startDwellTicker(v.dwell_s || 0);
+  }
+
+  function startDwellTicker(initialSec) {
     if (dwellTimerInterval) clearInterval(dwellTimerInterval);
+    let s = initialSec;
+    if (billDwellTime) billDwellTime.textContent = formatDuration(s);
 
     dwellTimerInterval = setInterval(() => {
-      if (carData && carData.state !== 'OUTSIDE') {
-        carData.dwell_s = (carData.dwell_s || 0) + 1;
-        if (billDwellTime) {
-          billDwellTime.textContent = formatDuration(carData.dwell_s);
-        }
-      }
+      s++;
+      if (billDwellTime) billDwellTime.textContent = formatDuration(s);
     }, 1000);
   }
 
@@ -167,135 +271,103 @@
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
-  function formatTime(isoStr) {
-    if (!isoStr) return 'N/A';
+  // 3. Razorpay Checkout Modal
+  function openRazorpayCheckout() {
+    if (!currentOrderData || !selectedCar) {
+      alert('Please select an active vehicle inside the facility.');
+      return;
+    }
+
+    const keyId = currentOrderData.razorpay_key_id || 'rzp_test_parktrack360';
+    const amountPaise = Math.round((currentOrderData.fare || 50.0) * 100);
+
+    const options = {
+      key: keyId,
+      amount: amountPaise,
+      currency: "INR",
+      name: "ParkTrack 360",
+      description: `Parking Clearance for Car #${selectedCar}`,
+      order_id: currentOrderData.order_id && !currentOrderData.order_id.startsWith("order_sim") ? currentOrderData.order_id : undefined,
+      handler: function (response) {
+        console.log("Razorpay payment response:", response);
+        verifyAndOpenGate({
+          car: selectedCar,
+          razorpay_order_id: response.razorpay_order_id || currentOrderData.order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          method: "Razorpay Checkout"
+        });
+      },
+      prefill: {
+        name: `Driver of Car #${selectedCar}`,
+        contact: "9876543210",
+        email: `car${selectedCar}@parktrack360.local`
+      },
+      theme: {
+        color: "#f59e0b"
+      },
+      modal: {
+        ondismiss: function () {
+          console.log("Razorpay checkout modal dismissed by user.");
+        }
+      }
+    };
+
     try {
-      const d = new Date(isoStr);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (typeof Razorpay !== 'undefined') {
+        const rzp = new Razorpay(options);
+        rzp.on('payment.failed', function (resp) {
+          alert(`Payment failed: ${resp.error.description}`);
+        });
+        rzp.open();
+      } else {
+        // Fallback to direct verification
+        verifyAndOpenGate({
+          car: selectedCar,
+          order_id: currentOrderData.order_id,
+          method: "Simulated UPI QR"
+        });
+      }
     } catch (e) {
-      return isoStr;
+      console.warn("Razorpay SDK initialization fallback:", e);
+      verifyAndOpenGate({
+        car: selectedCar,
+        order_id: currentOrderData.order_id,
+        method: "UPI QR Scan"
+      });
     }
   }
 
-  // Pure SVG QR Code Generator (Zero external dependencies)
-  function renderQRCode(amount) {
-    if (!qrContainer) return;
-    const upiUri = `upi://pay?pa=parktrack360@okaxis&pn=ParkTrack360&am=${amount.toFixed(2)}&cu=INR&tn=Car_${selectedCar}_Exit`;
-    
-    const svgCode = `
-      <svg viewBox="0 0 200 200" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-        <rect width="200" height="200" fill="#ffffff" />
-        <rect x="20" y="20" width="45" height="45" fill="#000000" rx="4" />
-        <rect x="27" y="27" width="31" height="31" fill="#ffffff" rx="2" />
-        <rect x="34" y="34" width="17" height="17" fill="#000000" rx="2" />
-
-        <rect x="135" y="20" width="45" height="45" fill="#000000" rx="4" />
-        <rect x="142" y="27" width="31" height="31" fill="#ffffff" rx="2" />
-        <rect x="149" y="34" width="17" height="17" fill="#000000" rx="2" />
-
-        <rect x="20" y="135" width="45" height="45" fill="#000000" rx="4" />
-        <rect x="27" y="142" width="31" height="31" fill="#ffffff" rx="2" />
-        <rect x="34" y="149" width="17" height="17" fill="#000000" rx="2" />
-
-        <g fill="#000000">
-          <rect x="75" y="24" width="8" height="8" />
-          <rect x="90" y="24" width="8" height="8" />
-          <rect x="105" y="24" width="8" height="8" />
-          <rect x="120" y="24" width="8" height="8" />
-
-          <rect x="75" y="40" width="8" height="8" />
-          <rect x="98" y="40" width="15" height="8" />
-          <rect x="120" y="40" width="8" height="8" />
-
-          <rect x="75" y="56" width="8" height="8" />
-          <rect x="90" y="56" width="8" height="8" />
-          <rect x="105" y="56" width="8" height="8" />
-
-          <rect x="24" y="75" width="8" height="8" />
-          <rect x="40" y="75" width="8" height="8" />
-          <rect x="56" y="75" width="8" height="8" />
-          <rect x="75" y="75" width="16" height="16" />
-          <rect x="100" y="75" width="8" height="8" />
-          <rect x="116" y="75" width="16" height="8" />
-          <rect x="140" y="75" width="8" height="8" />
-          <rect x="156" y="75" width="16" height="8" />
-
-          <rect x="24" y="90" width="16" height="8" />
-          <rect x="56" y="90" width="8" height="8" />
-          <rect x="95" y="95" width="16" height="16" />
-          <rect x="120" y="90" width="8" height="8" />
-          <rect x="145" y="90" width="8" height="8" />
-          <rect x="165" y="90" width="8" height="8" />
-
-          <rect x="24" y="105" width="8" height="8" />
-          <rect x="45" y="105" width="15" height="8" />
-          <rect x="75" y="105" width="8" height="8" />
-          <rect x="120" y="105" width="16" height="8" />
-          <rect x="150" y="105" width="8" height="8" />
-          <rect x="165" y="105" width="8" height="8" />
-
-          <rect x="24" y="120" width="8" height="8" />
-          <rect x="40" y="120" width="8" height="8" />
-          <rect x="56" y="120" width="8" height="8" />
-          <rect x="75" y="120" width="8" height="8" />
-          <rect x="90" y="120" width="16" height="8" />
-          <rect x="135" y="120" width="8" height="8" />
-          <rect x="150" y="120" width="20" height="8" />
-
-          <rect x="75" y="140" width="8" height="8" />
-          <rect x="90" y="140" width="8" height="8" />
-          <rect x="110" y="140" width="16" height="8" />
-          <rect x="135" y="140" width="16" height="8" />
-          <rect x="160" y="140" width="8" height="8" />
-
-          <rect x="75" y="155" width="16" height="8" />
-          <rect x="100" y="155" width="8" height="8" />
-          <rect x="120" y="155" width="8" height="8" />
-          <rect x="145" y="155" width="8" height="8" />
-          <rect x="160" y="155" width="15" height="8" />
-
-          <rect x="75" y="170" width="8" height="8" />
-          <rect x="95" y="170" width="16" height="8" />
-          <rect x="120" y="170" width="16" height="8" />
-          <rect x="145" y="170" width="25" height="8" />
-        </g>
-        <rect x="86" y="86" width="28" height="28" fill="#ffffff" rx="4" />
-        <rect x="90" y="90" width="20" height="20" fill="#000000" rx="2" />
-        <text x="100" y="104" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#f59e0b" text-anchor="middle">₹</text>
-      </svg>
-    `;
-    qrContainer.innerHTML = svgCode;
-  }
-
-  // Complete Payment Action
-  async function processPayment(method) {
-    if (btnVerifyPayment) btnVerifyPayment.disabled = true;
-    if (btnFastagAutoPay) btnFastagAutoPay.disabled = true;
+  // 4. Verify Payment & Open Exit Barrier Gate
+  async function verifyAndOpenGate(payload) {
+    if (btnRazorpayPay) btnRazorpayPay.disabled = true;
+    if (btnVerifyManual) btnVerifyManual.disabled = true;
 
     try {
-      const res = await fetch('/api/billing/checkout', {
+      const res = await fetch('/api/payment/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ car: selectedCar, method: method })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
       if (data.ok) {
-        showReceipt(data, method);
+        showReceipt(data, payload.method || 'Razorpay UPI');
       } else {
-        alert(`Payment verification failed: ${data.reason || 'Could not verify'}`);
-        if (btnVerifyPayment) btnVerifyPayment.disabled = false;
-        if (btnFastagAutoPay) btnFastagAutoPay.disabled = false;
+        alert(`Payment verification failed: ${data.detail || data.reason || 'Could not verify'}`);
+        if (btnRazorpayPay) btnRazorpayPay.disabled = false;
+        if (btnVerifyManual) btnVerifyManual.disabled = false;
       }
     } catch (e) {
-      console.error('Checkout error:', e);
-      alert('Error communicating with checkout server.');
-      if (btnVerifyPayment) btnVerifyPayment.disabled = false;
-      if (btnFastagAutoPay) btnFastagAutoPay.disabled = false;
+      console.error('Verification error:', e);
+      alert('Error connecting to settlement server.');
+      if (btnRazorpayPay) btnRazorpayPay.disabled = false;
+      if (btnVerifyManual) btnVerifyManual.disabled = false;
     }
   }
 
   function showReceipt(data, method) {
+    if (dwellTimerInterval) clearInterval(dwellTimerInterval);
     if (checkoutView) checkoutView.style.display = 'none';
     if (receiptView) receiptView.style.display = 'block';
 
@@ -303,22 +375,53 @@
     if (rcpCarNum) rcpCarNum.textContent = `Car #${data.car}`;
     if (rcpSlotId) rcpSlotId.textContent = carData?.slot ? `Bay ${carData.slot}` : 'Assigned Bay';
     if (rcpDuration) rcpDuration.textContent = formatDuration(carData?.dwell_s || 0);
-    if (rcpMethod) rcpMethod.textContent = method === 'UPI' ? 'UPI QR (Autonomous Instant Verify)' : 'Fastag / Card (Autonomous Auto-Debit)';
-    if (rcpAmountPaid) rcpAmountPaid.textContent = `₹${(data.fare || 0).toFixed(2)}`;
+    if (rcpMethod) rcpMethod.textContent = method;
+    if (rcpAmountPaid) rcpAmountPaid.textContent = `₹${(data.fare || 50.0).toFixed(2)}`;
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  if (btnVerifyPayment) {
-    btnVerifyPayment.addEventListener('click', () => processPayment('UPI'));
+  // Event Listeners
+  if (btnRazorpayPay) {
+    btnRazorpayPay.addEventListener('click', openRazorpayCheckout);
   }
 
-  if (btnFastagAutoPay) {
-    btnFastagAutoPay.addEventListener('click', () => processPayment('FASTAG'));
+  if (btnVerifyManual) {
+    btnVerifyManual.addEventListener('click', () => {
+      if (!selectedCar) {
+        alert('Please select an active vehicle.');
+        return;
+      }
+      verifyAndOpenGate({
+        car: selectedCar,
+        method: "Scanned UPI QR Code"
+      });
+    });
   }
 
-  // Initialize
-  updateActiveCarButton();
-  loadVehicleData();
+  // WebSocket for Live State Synchronization
+  function connectLiveSync() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/ui`;
+    try {
+      const ws = new WebSocket(wsUrl);
+      ws.onmessage = (event) => {
+        try {
+          const snap = JSON.parse(event.data);
+          if (snap.t === 'snapshot') {
+            // If car at exit changed, re-render
+            loadActiveCars();
+          }
+        } catch (e) {}
+      };
+      ws.onclose = () => {
+        setTimeout(connectLiveSync, 3000);
+      };
+    } catch (e) {}
+  }
+
+  // Initialization
+  loadActiveCars();
+  connectLiveSync();
 
 })();

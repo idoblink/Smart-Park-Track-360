@@ -270,16 +270,16 @@
       </div>
 
       <div class="pricing-grid">
-        <!-- First Hour Rate Card -->
+        <!-- Base Rate Card -->
         <div class="pricing-card">
           <div>
             <span class="pricing-badge">BASE TARIFF</span>
-            <h3 style="font-family: var(--font-sans); font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">First Hour</h3>
-            <div class="pricing-amount">₹40<span> / 1st hour</span></div>
+            <h3 style="font-family: var(--font-sans); font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">First 3 Hours</h3>
+            <div class="pricing-amount">₹50<span> / 3 hours</span></div>
             <ul class="pricing-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Covers 0 to 60 minutes parked</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Fully autonomous checkout</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Instant exit barrier unlock</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Covers 0 to 180 minutes parked</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Free exit if vehicle does not park</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Ultrasonic sensor session tracking</li>
             </ul>
           </div>
           <a href="/payment" class="btn btn-dark" style="width: 100%;">Pay Parking Fee</a>
@@ -292,7 +292,7 @@
             <h3 style="font-family: var(--font-sans); font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem; color: #fff;">Extended Parking</h3>
             <div class="pricing-amount" style="color: var(--gold-primary);">+₹20<span> / addl. hour</span></div>
             <ul class="pricing-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> <strong>1st Hour:</strong> Flat ₹40</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> <strong>First 3 Hours:</strong> Flat ₹50</li>
               <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> <strong>Each Addl. Hour:</strong> +₹20 / hr</li>
               <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Pro-rated down to the exact minute</li>
               <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 100% Autonomous — Zero Cash Required</li>
@@ -407,25 +407,85 @@
         </div>
 
         <div>
-          <div class="footer-links-title">ADMINISTRATION</div>
-          <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1rem;">
-            Restricted access portal for facility operators, barrier gate overrides, and sensor calibration.
-          </p>
-          <a href="/admin/login" class="btn btn-outline-gold btn-sm">
-            <span>Staff / Admin Login</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
-          </a>
+          <div class="footer-links-title">LEGAL & POLICIES</div>
+          <ul class="footer-links">
+            <li><a href="#policies" onclick="openPolicyModal('terms')">Terms & Conditions</a></li>
+            <li><a href="#policies" onclick="openPolicyModal('privacy')">Privacy Policy</a></li>
+            <li><a href="#policies" onclick="openPolicyModal('refund')">Refund & Cancellation</a></li>
+            <li><a href="#policies" onclick="openPolicyModal('contact')">Contact & Support</a></li>
+          </ul>
         </div>
       </div>
 
       <div class="footer-bottom">
-        <div>&copy; 2026 ParkTrack 360 — Mysuru Smart City IoT Project. All Rights Reserved.</div>
+        <div>&copy; 2026 ParkTrack 360 — Smart City IoT Parking System. Contact: haraswarup.m.ramesh@gmail.com</div>
         <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">
           ESP32 Firmware v1.1.0 • FastAPI Server v1.0
         </div>
       </div>
     </div>
   </footer>
+
+  <!-- Policy Modal for Razorpay Compliance Approval -->
+  <div class="modal-overlay" id="policyModal">
+    <div class="modal-box" style="max-width: 650px;">
+      <button class="modal-close" onclick="closePolicyModal()">&times;</button>
+      <h3 style="font-family: var(--font-display); font-size: 2rem; color: #fff; margin-bottom: 0.75rem;" id="modalPolicyTitle">POLICY</h3>
+      <div id="modalPolicyBody" style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
+        <!-- Filled via JS -->
+      </div>
+      <div style="margin-top: 1.5rem; text-align: right;">
+        <button class="btn btn-dark btn-sm" onclick="closePolicyModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openPolicyModal(type) {
+      const modal = document.getElementById('policyModal');
+      const title = document.getElementById('modalPolicyTitle');
+      const body = document.getElementById('modalPolicyBody');
+      if (!modal || !title || !body) return;
+
+      if (type === 'terms') {
+        title.textContent = 'TERMS & CONDITIONS';
+        body.innerHTML = `
+          <p><strong>1. Introduction:</strong> ParkTrack 360 operates automated smart parking facilities utilizing sensor-based bay allocation and digital payment clearance.</p>
+          <p style="margin-top:0.5rem;"><strong>2. Pricing & Tariffs:</strong> Standard parking fee is flat ₹50.00 for the first 3 hours. Extended parking is charged at ₹20.00 per additional hour.</p>
+          <p style="margin-top:0.5rem;"><strong>3. Clearance & Departure:</strong> Drivers must settle accrued parking charges via Razorpay UPI or digital checkout to trigger the automatic boom barrier opening.</p>
+          <p style="margin-top:0.5rem;"><strong>4. Unparked Vehicles:</strong> Vehicles entering without utilizing a parking bay are granted complimentary exit clearance.</p>
+        `;
+      } else if (type === 'privacy') {
+        title.textContent = 'PRIVACY POLICY';
+        body.innerHTML = `
+          <p><strong>1. Information Collection:</strong> ParkTrack 360 captures vehicle identification numbers via optical recognition cameras strictly for entry authorization, slot tracking, and checkout verification.</p>
+          <p style="margin-top:0.5rem;"><strong>2. Payment Data:</strong> All financial transactions are processed securely through RBI-licensed payment aggregators (Razorpay / UPI). No debit/credit card or banking credentials are saved on facility servers.</p>
+          <p style="margin-top:0.5rem;"><strong>3. Data Retention:</strong> Parking session data and access logs are archived securely in accordance with local municipal compliance regulations.</p>
+        `;
+      } else if (type === 'refund') {
+        title.textContent = 'REFUND & CANCELLATION POLICY';
+        body.innerHTML = `
+          <p><strong>1. Utilization Policy:</strong> Parking fees are assessed based on real-time ultrasonic dwell duration. Cancellations are not applicable once the bay has been occupied and utilized.</p>
+          <p style="margin-top:0.5rem;"><strong>2. Disputed Deductions:</strong> In the event of dual deduction or payment technical dispute, refunds will be evaluated and credited to the original payment source within 5 to 7 business days.</p>
+          <p style="margin-top:0.5rem;"><strong>3. Dispute Contact:</strong> For payment discrepancies, contact: haraswarup.m.ramesh@gmail.com.</p>
+        `;
+      } else if (type === 'contact') {
+        title.textContent = 'CONTACT & SUPPORT';
+        body.innerHTML = `
+          <p><strong>Facility Name:</strong> ParkTrack 360 Smart Parking Solutions</p>
+          <p style="margin-top:0.5rem;"><strong>Support Email:</strong> haraswarup.m.ramesh@gmail.com</p>
+          <p style="margin-top:0.5rem;"><strong>Helpline:</strong> +91 7619 628267</p>
+          <p style="margin-top:0.5rem;"><strong>Hours:</strong> 24×7 Automated Guidance & Operator Support</p>
+        `;
+      }
+      modal.classList.add('active');
+    }
+
+    function closePolicyModal() {
+      const modal = document.getElementById('policyModal');
+      if (modal) modal.classList.remove('active');
+    }
+  </script>
 
   <script src="/static/user.js"></script>
 </body>

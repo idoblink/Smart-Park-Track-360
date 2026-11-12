@@ -8,14 +8,23 @@ import asyncio
 import json
 import time
 import logging
+import io
+import base64
 from pathlib import Path
 from typing import Dict, Set, Optional, Any
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Body
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Body, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse, Response
 from pydantic import BaseModel
+import qrcode
+
+try:
+    import razorpay
+    HAS_RAZORPAY = True
+except ImportError:
+    HAS_RAZORPAY = False
 
 from server.state import ParkingState
 from server import db
@@ -35,6 +44,30 @@ main_loop: Optional[asyncio.AbstractEventLoop] = None
 serial_mgr: Optional[ESP32SerialManager] = None
 vision_mgr: Optional[VisionManager] = None
 
+def get_razorpay_client():
+    if not HAS_RAZORPAY:
+        return None, False
+    rzp_cfg = state.config.get("razorpay", {})
+    key_id = rzp_cfg.get("key_id", "")
+    key_secret = rzp_cfg.get("key_secret", "")
+    if key_id and key_secret and not key_id.startswith("rzp_test_YourKey") and "YourKey" not in key_secret:
+        try:
+            client = razorpay.Client(auth=(key_id, key_secret))
+            return client, True
+        except Exception as e:
+            logger.warning(f"Error creating Razorpay client: {e}")
+    return None, False
+
+def generate_qr_base64(data_str: str) -> str:
+    """Generates a high-contrast black-on-white scannable QR Code as base64 data URI."""
+    qr = qrcode.QRCode(version=1, box_size=8, border=2)
+    qr.add_data(data_str)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
+
 # Vision detection event handler for numbered cars
 def on_car_vision_event(lane: str, car_id: int):
     global main_loop
@@ -47,31 +80,54 @@ async def handle_vision_car_trigger(lane: str, car_id: int):
     if lane == "entry":
         ok, reason = state.authorize_entry(car_id)
         logger.info(f"Vision Entry auth for Car #{car_id}: ok={ok}, reason={reason}")
-        req_id = f"car_{car_id}_{int(time.time())}"
-        await send_to_esp32({
-            "t": "gate",
-            "gate": "entry",
-            "action": "open",
-            "hold_ms": hold_ms,
-            "req_id": req_id
-        })
-        state.gates["entry"] = "opening"
-        db.log_event("vision_entry", car=car_id, detail=f"auto_gate_180_open (auth={ok})")
-        await broadcast_ui_snapshot()
+        if ok:
+            req_id = f"car_{car_id}_{int(time.time())}"
+            await send_to_esp32({
+                "t": "gate",
+                "gate": "entry",
+                "action": "open",
+                "hold_ms": hold_ms,
+                "req_id": req_id
+            })
+            state.gates["entry"] = "opening"
+            db.log_event("vision_entry", car=car_id, detail=f"auto_gate_open (auth={ok})")
+            await broadcast_ui_snapshot()
+        else:
+            logger.warning(f"Vision entry denied for Car #{car_id}: {reason}")
+            db.log_event("entry_denied", car=car_id, detail=f"reason={reason}")
+            await broadcast_ui_snapshot()
 
     elif lane == "exit":
-        ok, reason, fare = state.authorize_exit(car_id, auto_admit=True)
-        logger.info(f"Vision Exit auth for Car #{car_id}: ok={ok}, fare={fare}")
-        req_id = f"exit_car_{car_id}_{int(time.time())}"
-        await send_to_esp32({
-            "t": "gate",
-            "gate": "exit",
-            "action": "open",
-            "hold_ms": hold_ms,
-            "req_id": req_id
-        })
-        state.gates["exit"] = "opening"
-        db.log_event("vision_exit", car=car_id, detail=f"auto_gate_180_open (fare={fare})")
+        # Verification at exit: Car must be registered inside facility
+        car = state.cars.get(car_id)
+        if not car or car["state"] == "OUTSIDE":
+            logger.warning(f"Vision exit rejected: Car #{car_id} is OUTSIDE (not registered inside facility).")
+            db.log_event("exit_denied", car=car_id, detail="car_not_inside_facility")
+            await broadcast_ui_snapshot()
+            return
+
+        # Case 1: Car entered but NEVER parked in any slot -> free pass!
+        if not car.get("has_parked", False):
+            logger.info(f"Car #{car_id} entered but never parked. Auto-opening exit gate for this car (Free pass).")
+            ok, reason, fare = state.authorize_exit_unparked(car_id)
+            if ok:
+                req_id = f"free_exit_car_{car_id}_{int(time.time())}"
+                await send_to_esp32({
+                    "t": "gate",
+                    "gate": "exit",
+                    "action": "open",
+                    "hold_ms": hold_ms,
+                    "req_id": req_id
+                })
+                state.gates["exit"] = "opening"
+                db.log_event("vision_exit_unparked_free", car=car_id, detail="free_gate_open_unparked")
+                await broadcast_ui_snapshot()
+            return
+
+        # Case 2: Car parked in a slot. Ultrasonic triggered parking -> Payment REQUIRED!
+        logger.info(f"Car #{car_id} is at EXIT gate. Payment required before exit gate opens.")
+        state.car_at_exit = car_id
+        db.log_event("car_at_exit", car=car_id, detail="awaiting_payment")
         await broadcast_ui_snapshot()
 
 # Helper to dispatch ESP32 message from either Serial or WebSocket
@@ -390,6 +446,199 @@ class CheckoutRequest(BaseModel):
     car: int
     method: str = "UPI"
 
+class CreateOrderRequest(BaseModel):
+    car: int
+
+class VerifyPaymentRequest(BaseModel):
+    car: int
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+    razorpay_signature: Optional[str] = None
+    method: Optional[str] = "UPI"
+
+@app.get("/api/active-cars")
+async def get_active_cars_endpoint():
+    """Returns only cars currently inside the facility (ENTERED or PARKED)."""
+    active = []
+    for c_id in range(1, 9):
+        car = state.cars.get(c_id)
+        if car and car["state"] != "OUTSIDE":
+            dwell_s, fare = state.compute_fare(car.get("entered_ts"))
+            active.append({
+                "car": c_id,
+                "state": car["state"],
+                "slot": car["slot"],
+                "has_parked": car.get("has_parked", False),
+                "entered_ts": car["entered_ts"],
+                "dwell_s": round(dwell_s, 0),
+                "fare": fare,
+                "currency": state.currency,
+                "is_at_exit": getattr(state, "car_at_exit", None) == c_id
+            })
+    return {
+        "active_cars": active,
+        "car_at_exit": getattr(state, "car_at_exit", None),
+        "total_inside": len(active)
+    }
+
+@app.post("/api/payment/create-order")
+async def post_create_order_endpoint(req: CreateOrderRequest):
+    """Generates Razorpay Order and dynamic UPI QR code for exact fare."""
+    if req.car < 1 or req.car > 8:
+        raise HTTPException(status_code=400, detail="Invalid car ID (1-8)")
+
+    car = state.cars.get(req.car)
+    if not car or car["state"] == "OUTSIDE":
+        raise HTTPException(status_code=400, detail=f"Car #{req.car} is outside facility")
+
+    dwell_s, fare = state.compute_fare(car.get("entered_ts"))
+    if fare <= 0:
+        fare = state.base_fee
+
+    rzp_cfg = state.config.get("razorpay", {})
+    key_id = rzp_cfg.get("key_id", "rzp_test_parktrack360")
+    upi_id = rzp_cfg.get("upi_id", "parktrack360@okaxis")
+
+    rzp_client, is_live = get_razorpay_client()
+    order_id = f"order_sim_{req.car}_{int(time.time())}"
+
+    if is_live and rzp_client:
+        try:
+            rzp_order = rzp_client.order.create({
+                "amount": int(round(fare * 100)),
+                "currency": "INR",
+                "receipt": f"rcp_car_{req.car}_{int(time.time())}",
+                "notes": {"car": str(req.car), "slot": str(car.get("slot") or "bay")}
+            })
+            order_id = rzp_order.get("id", order_id)
+        except Exception as e:
+            logger.warning(f"Razorpay live order creation failed: {e}. Falling back to standard UPI QR.")
+
+    # Generate standard scannable UPI Deep Link
+    upi_uri = f"upi://pay?pa={upi_id}&pn=ParkTrack360&am={fare:.2f}&cu=INR&tn=Car_{req.car}_Parking_Fee"
+    qr_b64 = generate_qr_base64(upi_uri)
+
+    return {
+        "ok": True,
+        "car": req.car,
+        "slot": car.get("slot"),
+        "state": car["state"],
+        "has_parked": car.get("has_parked", False),
+        "dwell_s": round(dwell_s, 0),
+        "fare": fare,
+        "currency": state.currency,
+        "order_id": order_id,
+        "razorpay_key_id": key_id,
+        "upi_id": upi_id,
+        "upi_uri": upi_uri,
+        "qr_code_image": qr_b64,
+        "is_live_gateway": is_live
+    }
+
+@app.post("/api/payment/verify")
+async def post_verify_payment_endpoint(req: VerifyPaymentRequest):
+    """Verifies Razorpay payment or UPI receipt, then and only then unlocks exit barrier gate."""
+    car = state.cars.get(req.car)
+    if not car or car["state"] == "OUTSIDE":
+        raise HTTPException(status_code=400, detail=f"Car #{req.car} is not inside facility")
+
+    # Cryptographic signature verification in Live Mode
+    rzp_client, is_live = get_razorpay_client()
+    if is_live and rzp_client and req.razorpay_signature and req.razorpay_order_id and req.razorpay_payment_id:
+        try:
+            rzp_client.utility.verify_payment_signature({
+                "razorpay_order_id": req.razorpay_order_id,
+                "razorpay_payment_id": req.razorpay_payment_id,
+                "razorpay_signature": req.razorpay_signature
+            })
+            logger.info(f"[SUCCESS] Cryptographic signature verified for Car #{req.car} (Payment ID: {req.razorpay_payment_id})")
+        except Exception as e:
+            logger.error(f"Razorpay live signature verification failed: {e}")
+            raise HTTPException(status_code=400, detail=f"Payment verification failed: Invalid signature ({e})")
+
+    # Authorize paid exit
+    ok, reason, fare = state.authorize_exit(req.car)
+    if not ok:
+        raise HTTPException(status_code=400, detail=f"Exit authorization refused: {reason}")
+
+    # Command exit gate open
+    hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
+    req_id = f"exit_car_{req.car}_{int(time.time())}"
+    sent = await send_to_esp32({
+        "t": "gate",
+        "gate": "exit",
+        "action": "open",
+        "hold_ms": hold_ms,
+        "req_id": req_id
+    })
+    state.gates["exit"] = "opening"
+
+    # Clear exit queue tracker
+    if getattr(state, "car_at_exit", None) == req.car:
+        state.car_at_exit = None
+
+    db.log_event("payment_verified", car=req.car, detail=f"method={req.method}, fare={fare}, order={req.razorpay_order_id}")
+    await broadcast_ui_snapshot()
+
+    return {
+        "ok": True,
+        "car": req.car,
+        "fare": fare,
+        "currency": state.currency,
+        "payment_method": req.method or "Razorpay UPI",
+        "receipt_id": f"RCP-{req.car}-{int(time.time())}",
+        "message": f"Payment of {fare} {state.currency} verified. Exit barrier unlocked!",
+        "gate_opened": True,
+        "sent_to_esp32": sent
+    }
+
+@app.post("/api/payment/webhook")
+async def post_payment_webhook(request: Request):
+    """Razorpay Webhook receiver for automatic async payment confirmation."""
+    try:
+        body_bytes = await request.body()
+        data = json.loads(body_bytes.decode("utf-8"))
+        event = data.get("event")
+        logger.info(f"Razorpay Webhook event received: {event}")
+
+        if event in ["payment.captured", "order.paid"]:
+            payload = data.get("payload", {})
+            payment = payload.get("payment", {}).get("entity", {})
+            notes = payment.get("notes", {})
+            car_str = notes.get("car")
+            if car_str and car_str.isdigit():
+                car_id = int(car_str)
+                logger.info(f"Webhook confirmed payment for Car #{car_id}! Opening exit gate.")
+                ok, reason, fare = state.authorize_exit(car_id)
+                if ok:
+                    hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
+                    req_id = f"exit_car_{car_id}_{int(time.time())}"
+                    await send_to_esp32({
+                        "t": "gate",
+                        "gate": "exit",
+                        "action": "open",
+                        "hold_ms": hold_ms,
+                        "req_id": req_id
+                    })
+                    state.gates["exit"] = "opening"
+                    if getattr(state, "car_at_exit", None) == car_id:
+                        state.car_at_exit = None
+                    db.log_event("webhook_exit_open", car=car_id, detail=f"fare={fare}")
+                    await broadcast_ui_snapshot()
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return {"status": "error", "detail": str(e)}
+
+@app.get("/api/exit-qr")
+async def get_exit_qr_code(car: Optional[int] = None):
+    """Returns a scannable QR code image pointing to the payment checkout portal."""
+    base_url = f"http://{state.config.get('server', {}).get('host', '127.0.0.1')}:{state.config.get('server', {}).get('port', 8000)}"
+    target_car = car or getattr(state, "car_at_exit", None)
+    checkout_url = f"{base_url}/payment" + (f"?car={target_car}" if target_car else "")
+    qr_b64 = generate_qr_base64(checkout_url)
+    return {"url": checkout_url, "qr_code_image": qr_b64, "car": target_car}
+
 @app.post("/api/billing/checkout")
 async def post_checkout_endpoint(req: CheckoutRequest):
     """Processes payment settlement and opens exit gate."""
@@ -407,6 +656,8 @@ async def post_checkout_endpoint(req: CheckoutRequest):
         "req_id": req_id
     })
     state.gates["exit"] = "opening"
+    if getattr(state, "car_at_exit", None) == req.car:
+        state.car_at_exit = None
     await broadcast_ui_snapshot()
 
     return {

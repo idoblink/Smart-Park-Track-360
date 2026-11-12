@@ -26,9 +26,9 @@ class ParkingState:
 
         # Pricing config
         pricing = self.config.get("pricing", {})
-        self.first_hour_fee = float(pricing.get("first_hour_fee", pricing.get("base_fee", 40.0)))
+        self.base_hours = float(pricing.get("base_hours", 3.0))
+        self.base_fee = float(pricing.get("base_fee", pricing.get("first_hour_fee", 50.0)))
         self.additional_hourly_rate = float(pricing.get("additional_hourly_rate", pricing.get("hourly_rate", 20.0)))
-        self.base_fee = self.first_hour_fee
         self.hourly_rate = self.additional_hourly_rate
         self.grace_period_min = float(pricing.get("grace_period_min", 0.0))
         self.currency = pricing.get("currency", "INR")
@@ -86,6 +86,14 @@ class ParkingState:
         # Initialize DB and sync car states
         db.init_db(self.db_path)
         self.cars: Dict[int, Dict[str, Any]] = db.load_car_states(self.db_path)
+
+    @property
+    def first_hour_fee(self) -> float:
+        return self.base_fee
+
+    @first_hour_fee.setter
+    def first_hour_fee(self, val: float):
+        self.base_fee = float(val)
 
     def _load_config(self, path: Path) -> Dict[str, Any]:
         if path.exists():
@@ -160,9 +168,11 @@ class ParkingState:
                 c_info = self.cars[oldest_entered_car]
                 c_info["state"] = "PARKED"
                 c_info["slot"] = slot_id
+                c_info["has_parked"] = True
                 parking_id = db.start_parking(c_info.get("visit_id"), oldest_entered_car, slot_id, db_path=self.db_path)
                 slot["parking_id"] = parking_id
-                db.save_car_state(oldest_entered_car, "PARKED", slot_id, c_info.get("entered_ts"), c_info.get("visit_id"), db_path=self.db_path)
+                db.mark_visit_parked(c_info.get("visit_id"), db_path=self.db_path)
+                db.save_car_state(oldest_entered_car, "PARKED", slot_id, c_info.get("entered_ts"), c_info.get("visit_id"), has_parked=True, db_path=self.db_path)
                 db.log_event("slot_change", car=oldest_entered_car, slot=slot_id, detail="occupied", db_path=self.db_path)
             else:
                 slot["car"] = None
@@ -207,7 +217,7 @@ class ParkingState:
 
     def compute_fare(self, entered_ts_str: Optional[str]) -> Tuple[float, float]:
         """Calculates total dwell time in seconds and total fare in currency units.
-        First hour (0..60m) = ₹40. Each additional hour = +₹20/hr (pro-rated by minute).
+        First 3 hours (0..180m) = ₹50. Each additional hour = +₹20/hr (pro-rated by minute).
         """
         if not entered_ts_str:
             return 0.0, 0.0
@@ -220,11 +230,12 @@ class ParkingState:
             if self.grace_period_min > 0 and duration_min <= self.grace_period_min:
                 return duration_s, 0.0
 
-            if duration_min <= 60.0:
-                total_fare = self.first_hour_fee
+            base_min = self.base_hours * 60.0
+            if duration_min <= base_min:
+                total_fare = self.base_fee
             else:
-                additional_hours = (duration_min - 60.0) / 60.0
-                total_fare = self.first_hour_fee + (additional_hours * self.additional_hourly_rate)
+                additional_hours = (duration_min - base_min) / 60.0
+                total_fare = self.base_fee + (additional_hours * self.additional_hourly_rate)
 
             return duration_s, round(total_fare, 2)
         except Exception:
@@ -255,7 +266,8 @@ class ParkingState:
         car["entered_ts"] = now_str
         car["visit_id"] = visit_id
         car["slot"] = None
-        db.save_car_state(car_id, "ENTERED", None, now_str, visit_id, db_path=self.db_path)
+        car["has_parked"] = False
+        db.save_car_state(car_id, "ENTERED", None, now_str, visit_id, has_parked=False, db_path=self.db_path)
         db.log_event("entry", car=car_id, detail="approved", db_path=self.db_path)
 
         # Arm camera cooldown
@@ -269,11 +281,43 @@ class ParkingState:
             car["state"] = "OUTSIDE"
             car["entered_ts"] = None
             car["visit_id"] = None
-            db.save_car_state(car_id, "OUTSIDE", None, None, None, db_path=self.db_path)
+            car["has_parked"] = False
+            db.save_car_state(car_id, "OUTSIDE", None, None, None, has_parked=False, db_path=self.db_path)
             db.log_event("deny", car=car_id, detail=f"rollback: {reason}", db_path=self.db_path)
 
+    def authorize_exit_unparked(self, car_id: int) -> Tuple[bool, str, float]:
+        """Authorizes free exit if car entered but NEVER parked in any bay."""
+        if car_id < 1 or car_id > 8:
+            return False, "invalid_car", 0.0
+
+        car = self.cars.get(car_id)
+        if not car or car["state"] == "OUTSIDE":
+            return False, "not_inside", 0.0
+
+        # Check if car has actually parked
+        if car.get("has_parked", False):
+            return False, "car_has_parked_payment_required", 0.0
+
+        # Compute dwell time (fare is 0)
+        inside_s, _ = self.compute_fare(car.get("entered_ts"))
+        visit_id = car.get("visit_id")
+        if visit_id:
+            db.close_visit(visit_id, inside_s=inside_s, parked_s=0.0, fare=0.0, db_path=self.db_path)
+
+        car["state"] = "OUTSIDE"
+        car["slot"] = None
+        car["entered_ts"] = None
+        car["visit_id"] = None
+        car["has_parked"] = False
+        db.save_car_state(car_id, "OUTSIDE", None, None, None, has_parked=False, db_path=self.db_path)
+        db.log_event("exit_free", car=car_id, detail="unparked_free_pass", db_path=self.db_path)
+
+        self.cameras["exit"]["cooldown_until"] = time.time() + self.cooldown_s
+        self.cameras["exit"]["state"] = "cooldown"
+        return True, "free_unparked_exit", 0.0
+
     def authorize_exit(self, car_id: int, auto_admit: bool = False) -> Tuple[bool, str, float]:
-        """Evaluates exit lane authorization and calculates final bill."""
+        """Evaluates exit lane authorization upon completed payment and calculates final bill."""
         if car_id < 1 or car_id > 8:
             return False, "invalid_car", 0.0
         
@@ -288,6 +332,7 @@ class ParkingState:
                 car["entered_ts"] = now_str
                 car["visit_id"] = v_id
                 car["state"] = "ENTERED"
+                car["has_parked"] = True
             else:
                 return False, "not_inside", 0.0
 
@@ -311,7 +356,8 @@ class ParkingState:
         car["slot"] = None
         car["entered_ts"] = None
         car["visit_id"] = None
-        db.save_car_state(car_id, "OUTSIDE", None, None, None, db_path=self.db_path)
+        car["has_parked"] = False
+        db.save_car_state(car_id, "OUTSIDE", None, None, None, has_parked=False, db_path=self.db_path)
         db.log_event("exit", car=car_id, detail=f"fare={fare} {self.currency}", db_path=self.db_path)
 
         self.cameras["exit"]["cooldown_until"] = time.time() + self.cooldown_s
@@ -370,6 +416,7 @@ class ParkingState:
                 "car": c_id,
                 "state": c["state"],
                 "slot": c["slot"],
+                "has_parked": c.get("has_parked", False),
                 "entered_ts": c["entered_ts"],
                 "dwell_s": round(dwell_s, 0) if c["state"] != "OUTSIDE" else 0,
                 "current_fare": fare if c["state"] != "OUTSIDE" else 0.0
@@ -391,9 +438,10 @@ class ParkingState:
                 "available": self.get_free_count()
             },
             "pricing": {
-                "first_hour_fee": self.first_hour_fee,
-                "additional_hourly_rate": self.additional_hourly_rate,
+                "base_hours": self.base_hours,
                 "base_fee": self.base_fee,
+                "first_hour_fee": self.base_fee,
+                "additional_hourly_rate": self.additional_hourly_rate,
                 "hourly_rate": self.hourly_rate,
                 "grace_period_min": self.grace_period_min,
                 "currency": self.currency
