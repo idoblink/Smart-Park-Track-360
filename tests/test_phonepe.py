@@ -135,3 +135,4 @@ def test_phonepe_callback_webhook_auto_opens_gate():
     assert resp.json()["status"] == "ok"
     assert state.gates["exit"] == "opening"
     assert state.cars[5]["state"] == "OUTSIDE"
+
