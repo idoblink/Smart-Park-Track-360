@@ -535,9 +535,9 @@ async def post_create_order_endpoint(req: CreateOrderRequest, request: Request):
         public_base = f"{scheme}://{host_hdr}"
         mobile_checkout_url = f"{public_base}/payment?car={req.car}"
     else:
-        # Use Render public domain for PhonePe callback so PhonePe cloud servers don't crash with 500 on localhost
+        # Use Render public domain so any mobile phone (on 4G/5G or Wi-Fi) can open it immediately
         public_base = "https://smart-park-track-360.onrender.com"
-        mobile_checkout_url = f"http://192.168.29.37:8000/payment?car={req.car}"
+        mobile_checkout_url = f"https://smart-park-track-360.onrender.com/payment?car={req.car}"
 
     redirect_url = f"{public_base}/payment?car={req.car}&status=phonepe_redirect"
     callback_url = f"{public_base}/api/payment/phonepe/callback"

@@ -127,8 +127,14 @@
         </div>
 
         <!-- Dynamic QR Container: Real scannable PNG from Python qrcode generator -->
-        <div class="qr-box" id="qrContainer">
+        <div class="qr-box" id="qrContainer" style="cursor: pointer;" title="Click to open checkout link">
           <div style="font-size: 0.8rem; color: #94a3b8; padding: 1rem;">Generating dynamic payment QR...</div>
+        </div>
+
+        <div style="margin-top: 0.35rem; text-align: center; margin-bottom: 0.5rem;">
+          <a id="qrOpenDirectlyBtn" href="#" target="_blank" style="font-size: 0.78rem; font-weight: 700; color: #2563eb; text-decoration: underline;">
+            🔗 Click here to open checkout on this screen
+          </a>
         </div>
 
         <div style="font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; color: #0f172a; margin-bottom: 0.2rem;" id="qrSubtitleText">

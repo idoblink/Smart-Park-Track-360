@@ -30,6 +30,7 @@
   const qrAmountText = document.getElementById('qrAmountText');
   const upiIdDisplay = document.getElementById('upiIdDisplay');
   const qrSubtitleText = document.getElementById('qrSubtitleText');
+  const qrOpenDirectlyBtn = document.getElementById('qrOpenDirectlyBtn');
   const tabMobilePortalQR = document.getElementById('tabMobilePortalQR');
   const tabPhonePeQR = document.getElementById('tabPhonePeQR');
   const tabDirectUPIQR = document.getElementById('tabDirectUPIQR');
@@ -272,6 +273,11 @@
              style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />
       `;
       if (qrSubtitleText) qrSubtitleText.textContent = 'Scan with Phone Camera to Open Mobile Checkout';
+      if (qrOpenDirectlyBtn) {
+        qrOpenDirectlyBtn.href = currentOrderData.mobile_checkout_url || '#';
+        qrOpenDirectlyBtn.textContent = '🔗 Click to Open Mobile Checkout on this Screen';
+        qrOpenDirectlyBtn.style.display = 'inline';
+      }
       if (tabMobilePortalQR) {
         tabMobilePortalQR.style.background = '#2563eb';
         tabMobilePortalQR.style.color = '#fff';
@@ -284,6 +290,11 @@
              style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />
       `;
       if (qrSubtitleText) qrSubtitleText.textContent = 'PhonePe Cloud Simulator (Pre-prod)';
+      if (qrOpenDirectlyBtn) {
+        qrOpenDirectlyBtn.href = currentOrderData.phonepe_url || '#';
+        qrOpenDirectlyBtn.textContent = '⚡ Click to Open PhonePe Simulator on this Screen';
+        qrOpenDirectlyBtn.style.display = 'inline';
+      }
       if (tabPhonePeQR) {
         tabPhonePeQR.style.background = '#5f259f';
         tabPhonePeQR.style.color = '#fff';
@@ -296,6 +307,11 @@
              style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />
       `;
       if (qrSubtitleText) qrSubtitleText.textContent = 'UPI: ' + (currentOrderData.upi_id || 'haraswarup.m.ramesh@okhdfcbank');
+      if (qrOpenDirectlyBtn) {
+        qrOpenDirectlyBtn.href = currentOrderData.upi_uri || '#';
+        qrOpenDirectlyBtn.textContent = '🏦 Click to Open in Default UPI App';
+        qrOpenDirectlyBtn.style.display = 'inline';
+      }
       if (tabDirectUPIQR) {
         tabDirectUPIQR.style.background = '#0f172a';
         tabDirectUPIQR.style.color = '#fff';
@@ -558,6 +574,16 @@
   }
 
   // Event Listeners
+  if (qrContainer) {
+    qrContainer.addEventListener('click', () => {
+      let targetUrl = null;
+      if (currentQrMode === 'mobile_portal') targetUrl = currentOrderData?.mobile_checkout_url;
+      else if (currentQrMode === 'phonepe') targetUrl = currentOrderData?.phonepe_url;
+      else if (currentQrMode === 'direct') targetUrl = currentOrderData?.upi_uri;
+      if (targetUrl) window.open(targetUrl, '_blank');
+    });
+  }
+
   if (tabMobilePortalQR) {
     tabMobilePortalQR.addEventListener('click', () => {
       currentQrMode = 'mobile_portal';
