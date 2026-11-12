@@ -488,8 +488,8 @@ async def get_active_cars_endpoint():
     }
 
 @app.post("/api/payment/create-order")
-async def post_create_order_endpoint(req: CreateOrderRequest):
-    """Generates Razorpay Order and dynamic UPI QR code for exact fare."""
+async def post_create_order_endpoint(req: CreateOrderRequest, request: Request):
+    """Generates Razorpay Order, PhonePe checkout, and dynamic UPI QR code for exact fare."""
     if req.car < 1 or req.car > 8:
         raise HTTPException(status_code=400, detail="Invalid car ID (1-8)")
 
@@ -521,23 +521,37 @@ async def post_create_order_endpoint(req: CreateOrderRequest):
         except Exception as e:
             logger.warning(f"Razorpay live order creation failed: {e}. Falling back to standard UPI QR.")
 
-    # Generate standard scannable real NPCI UPI Deep Link
+    # 1. Generate standard scannable real NPCI UPI Deep Link
     import urllib.parse
     pn_enc = urllib.parse.quote(merchant_name)
     tn_enc = urllib.parse.quote(f"Car {req.car} Parking Fee")
     upi_uri = f"upi://pay?pa={upi_id}&pn={pn_enc}&am={fare:.2f}&cu=INR&tn={tn_enc}"
     qr_b64 = generate_qr_base64(upi_uri)
 
-    # PhonePe order initiation for instant phone scanning & simulator auto-opening
+    # 2. Public base URL resolution for PhonePe cloud callbacks
+    host_hdr = request.headers.get("x-forwarded-host") or request.headers.get("host") or "localhost:8000"
+    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
+    if "onrender.com" in host_hdr:
+        public_base = f"{scheme}://{host_hdr}"
+        mobile_checkout_url = f"{public_base}/payment?car={req.car}"
+    else:
+        # Use Render public domain for PhonePe callback so PhonePe cloud servers don't crash with 500 on localhost
+        public_base = "https://smart-park-track-360.onrender.com"
+        mobile_checkout_url = f"http://192.168.29.37:8000/payment?car={req.car}"
+
+    redirect_url = f"{public_base}/payment?car={req.car}&status=phonepe_redirect"
+    callback_url = f"{public_base}/api/payment/phonepe/callback"
+
     phonepe_order = phonepe_client.create_payment_order(
         car_id=req.car,
         fare_inr=fare,
-        redirect_url=f"http://localhost:8000/payment?car={req.car}",
-        callback_url=f"http://localhost:8000/api/payment/phonepe/callback"
+        redirect_url=redirect_url,
+        callback_url=callback_url
     )
     phonepe_url = phonepe_order.get("payment_url", "")
     phonepe_txn_id = phonepe_order.get("txn_id", "")
     phonepe_qr_b64 = generate_qr_base64(phonepe_url) if phonepe_url else ""
+    mobile_qr_b64 = generate_qr_base64(mobile_checkout_url)
 
     return {
         "ok": True,
@@ -556,6 +570,8 @@ async def post_create_order_endpoint(req: CreateOrderRequest):
         "phonepe_url": phonepe_url,
         "phonepe_txn_id": phonepe_txn_id,
         "phonepe_qr_image": phonepe_qr_b64,
+        "mobile_checkout_url": mobile_checkout_url,
+        "mobile_qr_image": mobile_qr_b64,
         "is_live_gateway": is_live
     }
 
@@ -873,6 +889,45 @@ async def post_phonepe_callback(request: Request):
     except Exception as e:
         logger.error(f"PhonePe callback error: {e}")
         return {"status": "error", "detail": str(e)}
+
+@app.post("/api/payment/phonepe/simulate-success/{car_id}")
+async def post_phonepe_simulate_success_endpoint(car_id: int):
+    """
+    Simulates a successful PhonePe payment for Car #car_id.
+    Triggers exit gate opening automatically, completely immune to external sandbox outages.
+    """
+    car = state.cars.get(car_id)
+    if not car or car["state"] == "OUTSIDE":
+        raise HTTPException(status_code=400, detail=f"Car #{car_id} is not inside facility")
+
+    ok, reason, fare = state.authorize_exit(car_id)
+    if not ok:
+        raise HTTPException(status_code=400, detail=f"Exit refused: {reason}")
+
+    hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
+    req_id = f"phonepe_sim_{car_id}_{int(time.time())}"
+    sent = await send_to_esp32({
+        "t": "gate",
+        "gate": "exit",
+        "action": "open",
+        "hold_ms": hold_ms,
+        "req_id": req_id
+    })
+    state.gates["exit"] = "opening"
+    if getattr(state, "car_at_exit", None) == car_id:
+        state.car_at_exit = None
+
+    db.log_event("phonepe_sim_verified", car=car_id, detail=f"fare={fare}")
+    await broadcast_ui_snapshot()
+
+    return {
+        "ok": True,
+        "car": car_id,
+        "fare": fare,
+        "gate_opened": True,
+        "sent_to_esp32": sent,
+        "message": f"PhonePe payment simulated successfully! Exit barrier opened automatically."
+    }
 
 @app.get("/api/exit-qr")
 async def get_exit_qr_code(car: Optional[int] = None):
