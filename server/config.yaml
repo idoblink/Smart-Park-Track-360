@@ -30,8 +30,8 @@ razorpay:
   enabled: true
   key_id: "rzp_test_TzJBfZwN0WuEpn"
   key_secret: "MqSzY0DpGycF7ltZeVHLrFmx"
-  merchant_name: "ParkTrack 360"
-  upi_id: "parktrack360@okaxis"
+  merchant_name: "Haraswarup M Ramesh"
+  upi_id: "haraswarup.m.ramesh@okhdfcbank"
 
 phonepe:
   enabled: true

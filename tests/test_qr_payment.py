@@ -109,3 +109,35 @@ def test_exit_denied_for_outside_car():
     res = client.post("/api/payment/verify", json={"car": 5})
     assert res.status_code == 400
 
+
+def test_real_upi_qr_contains_hdfc_vpa():
+    # Admit Car 6 and park
+    client.post("/api/entry", json={"car": 6})
+    state._handle_slot_transition("G2", is_occupied=True)
+
+    res = client.post("/api/payment/create-order", json={"car": 6})
+    assert res.status_code == 200
+    data = res.json()
+    assert "haraswarup.m.ramesh@okhdfcbank" in data["upi_uri"]
+    assert "Haraswarup" in data["upi_uri"]
+    assert data["upi_id"] == "haraswarup.m.ramesh@okhdfcbank"
+
+
+def test_upi_bank_webhook_auto_opens_exit_gate():
+    # Admit Car 7 and park
+    client.post("/api/entry", json={"car": 7})
+    state._handle_slot_transition("G3", is_occupied=True)
+    state.car_at_exit = 7
+
+    # Simulate bank SMS notification arriving at webhook
+    sms_text = "Dear Customer, INR 50.00 credited to a/c **1234 on 12-Nov-26 by UPI ref 431712345678. Info: UPI/Car 7 Parking. - HDFC Bank"
+    res = client.post("/api/payment/upi-webhook", json={"message": sms_text})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["ok"] is True
+    assert data["gate_opened"] is True
+    assert data["car"] == 7
+    assert state.gates["exit"] == "opening"
+    assert state.cars[7]["state"] == "OUTSIDE"
+
+

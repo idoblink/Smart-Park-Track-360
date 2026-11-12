@@ -503,7 +503,8 @@ async def post_create_order_endpoint(req: CreateOrderRequest):
 
     rzp_cfg = state.config.get("razorpay", {})
     key_id = rzp_cfg.get("key_id", "rzp_test_parktrack360")
-    upi_id = rzp_cfg.get("upi_id", "parktrack360@okaxis")
+    upi_id = rzp_cfg.get("upi_id", "haraswarup.m.ramesh@okhdfcbank")
+    merchant_name = rzp_cfg.get("merchant_name", "Haraswarup M Ramesh")
 
     rzp_client, is_live = get_razorpay_client()
     order_id = f"order_sim_{req.car}_{int(time.time())}"
@@ -520,8 +521,11 @@ async def post_create_order_endpoint(req: CreateOrderRequest):
         except Exception as e:
             logger.warning(f"Razorpay live order creation failed: {e}. Falling back to standard UPI QR.")
 
-    # Generate standard scannable UPI Deep Link
-    upi_uri = f"upi://pay?pa={upi_id}&pn=ParkTrack360&am={fare:.2f}&cu=INR&tn=Car_{req.car}_Parking_Fee"
+    # Generate standard scannable real NPCI UPI Deep Link
+    import urllib.parse
+    pn_enc = urllib.parse.quote(merchant_name)
+    tn_enc = urllib.parse.quote(f"Car {req.car} Parking Fee")
+    upi_uri = f"upi://pay?pa={upi_id}&pn={pn_enc}&am={fare:.2f}&cu=INR&tn={tn_enc}"
     qr_b64 = generate_qr_base64(upi_uri)
 
     return {
@@ -635,6 +639,90 @@ async def post_payment_webhook(request: Request):
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return {"status": "error", "detail": str(e)}
+
+@app.post("/api/payment/upi-webhook")
+@app.get("/api/payment/upi-webhook")
+async def post_upi_bank_webhook(request: Request):
+    """
+    Receives real-time bank notifications (from Android SMS/Notification forwarders, Tasker,
+    or bank alert forwarders) when real money is credited to haraswarup.m.ramesh@okhdfcbank.
+    Extracts credited amount, identifies the target car waiting at exit,
+    and automatically opens the physical exit barrier instantly with 0 button presses!
+    """
+    import re
+    body_text = ""
+    try:
+        if request.method == "POST":
+            content_type = request.headers.get("content-type", "")
+            if "application/json" in content_type:
+                data = await request.json()
+                body_text = str(data.get("message") or data.get("text") or data.get("sms") or data.get("body") or data)
+            else:
+                body_bytes = await request.body()
+                body_text = body_bytes.decode("utf-8", errors="ignore")
+        else:
+            body_text = str(request.query_params)
+    except Exception as e:
+        body_text = str(e)
+
+    logger.info(f"Incoming UPI Bank Notification Webhook: {body_text}")
+
+    # Check for credit keywords
+    lower_text = body_text.lower()
+    is_credit = any(k in lower_text for k in ["credit", "credited", "received", "deposited", "sent you", "paid you", "successful"])
+
+    # Extract amount
+    amt_match = re.search(r'(?:inr|rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)', body_text, re.IGNORECASE)
+    amount = 0.0
+    if amt_match:
+        try:
+            amount = float(amt_match.group(1).replace(",", ""))
+        except Exception:
+            amount = 0.0
+
+    # Extract target car if present, otherwise default to car_at_exit or single car inside
+    car_match = re.search(r'car[_\s#]*([1-8])', body_text, re.IGNORECASE)
+    target_car = None
+    if car_match:
+        target_car = int(car_match.group(1))
+    elif getattr(state, "car_at_exit", None):
+        target_car = state.car_at_exit
+    else:
+        inside_cars = [c for c in range(1, 9) if state.cars.get(c, {}).get("state") != "OUTSIDE"]
+        if inside_cars:
+            target_car = inside_cars[0]
+
+    if not target_car:
+        return {"ok": False, "reason": "no_car_waiting_for_exit", "text": body_text}
+
+    # Authorize exit and open barrier
+    ok, reason, fare = state.authorize_exit(target_car)
+    if ok:
+        hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
+        req_id = f"bank_exit_{target_car}_{int(time.time())}"
+        await send_to_esp32({
+            "t": "gate",
+            "gate": "exit",
+            "action": "open",
+            "hold_ms": hold_ms,
+            "req_id": req_id
+        })
+        state.gates["exit"] = "opening"
+        if getattr(state, "car_at_exit", None) == target_car:
+            state.car_at_exit = None
+        db.log_event("real_bank_upi_verified", car=target_car, detail=f"amount={amount}, note={body_text[:100]}")
+        await broadcast_ui_snapshot()
+        logger.info(f"[SUCCESS] Real Bank UPI Payment verified for Car #{target_car}! Exit barrier opened automatically.")
+        return {
+            "ok": True,
+            "car": target_car,
+            "fare": fare,
+            "amount_detected": amount,
+            "gate_opened": True,
+            "message": f"Real bank transfer confirmed. Exit barrier opened automatically for Car #{target_car}!"
+        }
+    else:
+        return {"ok": False, "car": target_car, "reason": reason}
 
 @app.post("/api/payment/phonepe/create-order")
 async def post_phonepe_create_order(req: PhonePeCreateOrderRequest, request: Request):

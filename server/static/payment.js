@@ -497,7 +497,18 @@
         try {
           const snap = JSON.parse(event.data);
           if (snap.t === 'snapshot') {
-            // If car at exit changed, re-render
+            // Check if selectedCar just transitioned to OUTSIDE while exit gate opened
+            if (selectedCar && snap.cars && snap.cars[selectedCar]) {
+              const c = snap.cars[selectedCar];
+              if (c.state === 'OUTSIDE' && snap.gates && (snap.gates.exit === 'open' || snap.gates.exit === 'opening')) {
+                showReceipt({
+                  receipt_id: `BANK-${selectedCar}-${Date.now().toString().slice(-6)}`,
+                  car: selectedCar,
+                  fare: currentOrderData?.fare || 50.0
+                }, 'Real Bank Account Transfer (Auto-Cleared)');
+                return;
+              }
+            }
             loadActiveCars();
           }
         } catch (e) {}
