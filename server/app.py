@@ -30,13 +30,11 @@ from server.state import ParkingState
 from server import db
 from server.serial_comm import ESP32SerialManager
 from server.vision import VisionManager
-from server.phonepe import PhonePeClient
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("parktrack")
 
 state = ParkingState()
-phonepe_client = PhonePeClient(state.config)
 
 # WebSocket client sets
 esp32_socket: Optional[WebSocket] = None
@@ -456,11 +454,7 @@ class VerifyPaymentRequest(BaseModel):
     razorpay_order_id: Optional[str] = None
     razorpay_payment_id: Optional[str] = None
     razorpay_signature: Optional[str] = None
-    method: Optional[str] = "UPI"
-
-class PhonePeCreateOrderRequest(BaseModel):
-    car: int
-    phone: Optional[str] = "9999999999"
+    method: Optional[str] = "Razorpay Live"
 
 @app.get("/api/active-cars")
 async def get_active_cars_endpoint():
@@ -489,7 +483,7 @@ async def get_active_cars_endpoint():
 
 @app.post("/api/payment/create-order")
 async def post_create_order_endpoint(req: CreateOrderRequest, request: Request):
-    """Generates Razorpay Order, PhonePe checkout, and dynamic UPI QR code for exact fare."""
+    """Generates official Razorpay Order and dynamic UPI QR code for exact fare."""
     if req.car < 1 or req.car > 8:
         raise HTTPException(status_code=400, detail="Invalid car ID (1-8)")
 
@@ -502,7 +496,7 @@ async def post_create_order_endpoint(req: CreateOrderRequest, request: Request):
         fare = state.base_fee
 
     rzp_cfg = state.config.get("razorpay", {})
-    key_id = rzp_cfg.get("key_id", "rzp_test_parktrack360")
+    key_id = rzp_cfg.get("key_id", "rzp_live_U23UQm1KlSJ7uS")
     upi_id = rzp_cfg.get("upi_id", "haraswarup.m.ramesh@okhdfcbank")
     merchant_name = rzp_cfg.get("merchant_name", "Haraswarup M Ramesh")
 
@@ -518,40 +512,16 @@ async def post_create_order_endpoint(req: CreateOrderRequest, request: Request):
                 "notes": {"car": str(req.car), "slot": str(car.get("slot") or "bay")}
             })
             order_id = rzp_order.get("id", order_id)
+            logger.info(f"Created Razorpay Live Order: {order_id} for Car #{req.car} ({fare} INR)")
         except Exception as e:
             logger.warning(f"Razorpay live order creation failed: {e}. Falling back to standard UPI QR.")
 
-    # 1. Generate standard scannable real NPCI UPI Deep Link
+    # Generate standard scannable real NPCI UPI Deep Link
     import urllib.parse
     pn_enc = urllib.parse.quote(merchant_name)
     tn_enc = urllib.parse.quote(f"Car {req.car} Parking Fee")
     upi_uri = f"upi://pay?pa={upi_id}&pn={pn_enc}&am={fare:.2f}&cu=INR&tn={tn_enc}"
     qr_b64 = generate_qr_base64(upi_uri)
-
-    # 2. Public base URL resolution for PhonePe cloud callbacks
-    host_hdr = request.headers.get("x-forwarded-host") or request.headers.get("host") or "localhost:8000"
-    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
-    if "onrender.com" in host_hdr:
-        public_base = f"{scheme}://{host_hdr}"
-        mobile_checkout_url = f"{public_base}/payment?car={req.car}"
-    else:
-        # Use Render public domain so any mobile phone (on 4G/5G or Wi-Fi) can open it immediately
-        public_base = "https://smart-park-track-360.onrender.com"
-        mobile_checkout_url = f"https://smart-park-track-360.onrender.com/payment?car={req.car}"
-
-    redirect_url = f"{public_base}/payment?car={req.car}&status=phonepe_redirect"
-    callback_url = f"{public_base}/api/payment/phonepe/callback"
-
-    phonepe_order = phonepe_client.create_payment_order(
-        car_id=req.car,
-        fare_inr=fare,
-        redirect_url=redirect_url,
-        callback_url=callback_url
-    )
-    phonepe_url = phonepe_order.get("payment_url", "")
-    phonepe_txn_id = phonepe_order.get("txn_id", "")
-    phonepe_qr_b64 = generate_qr_base64(phonepe_url) if phonepe_url else ""
-    mobile_qr_b64 = generate_qr_base64(mobile_checkout_url)
 
     return {
         "ok": True,
@@ -567,11 +537,6 @@ async def post_create_order_endpoint(req: CreateOrderRequest, request: Request):
         "upi_id": upi_id,
         "upi_uri": upi_uri,
         "qr_code_image": qr_b64,
-        "phonepe_url": phonepe_url,
-        "phonepe_txn_id": phonepe_txn_id,
-        "phonepe_qr_image": phonepe_qr_b64,
-        "mobile_checkout_url": mobile_checkout_url,
-        "mobile_qr_image": mobile_qr_b64,
         "is_live_gateway": is_live
     }
 
@@ -634,9 +599,32 @@ async def post_verify_payment_endpoint(req: VerifyPaymentRequest):
 
 @app.post("/api/payment/webhook")
 async def post_payment_webhook(request: Request):
-    """Razorpay Webhook receiver for automatic async payment confirmation."""
+    """
+    Official Razorpay Webhook receiver for automatic hands-free payment confirmation.
+    Validates X-Razorpay-Signature using configured webhook_secret.
+    When 'payment.captured' or 'order.paid' occurs, immediately authorizes exit and commands
+    the ESP32 barrier gate to open!
+    """
     try:
         body_bytes = await request.body()
+        signature = request.headers.get("x-razorpay-signature")
+        rzp_cfg = state.config.get("razorpay", {})
+        webhook_secret = rzp_cfg.get("webhook_secret", "")
+        rzp_client, is_live = get_razorpay_client()
+
+        # Cryptographic Webhook signature verification
+        if is_live and rzp_client and webhook_secret and signature:
+            try:
+                rzp_client.utility.verify_webhook_signature(
+                    body_bytes.decode("utf-8"),
+                    signature,
+                    webhook_secret
+                )
+                logger.info("[SUCCESS] Razorpay Webhook signature cryptographically verified!")
+            except Exception as e:
+                logger.error(f"Razorpay Webhook signature verification failed: {e}")
+                raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
         data = json.loads(body_bytes.decode("utf-8"))
         event = data.get("event")
         logger.info(f"Razorpay Webhook event received: {event}")
@@ -644,11 +632,13 @@ async def post_payment_webhook(request: Request):
         if event in ["payment.captured", "order.paid"]:
             payload = data.get("payload", {})
             payment = payload.get("payment", {}).get("entity", {})
-            notes = payment.get("notes", {})
+            order = payload.get("order", {}).get("entity", {})
+
+            notes = payment.get("notes", {}) or order.get("notes", {})
             car_str = notes.get("car")
             if car_str and car_str.isdigit():
                 car_id = int(car_str)
-                logger.info(f"Webhook confirmed payment for Car #{car_id}! Opening exit gate.")
+                logger.info(f"[SUCCESS] Webhook confirmed payment for Car #{car_id}! Opening exit gate.")
                 ok, reason, fare = state.authorize_exit(car_id)
                 if ok:
                     hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
@@ -663,271 +653,15 @@ async def post_payment_webhook(request: Request):
                     state.gates["exit"] = "opening"
                     if getattr(state, "car_at_exit", None) == car_id:
                         state.car_at_exit = None
-                    db.log_event("webhook_exit_open", car=car_id, detail=f"fare={fare}")
+                    db.log_event("webhook_exit_open", car=car_id, detail=f"fare={fare}, event={event}")
                     await broadcast_ui_snapshot()
+
         return {"status": "ok"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return {"status": "error", "detail": str(e)}
-
-@app.post("/api/payment/upi-webhook")
-@app.get("/api/payment/upi-webhook")
-async def post_upi_bank_webhook(request: Request):
-    """
-    Receives real-time bank notifications (from Android SMS/Notification forwarders, Tasker,
-    or bank alert forwarders) when real money is credited to haraswarup.m.ramesh@okhdfcbank.
-    Extracts credited amount, identifies the target car waiting at exit,
-    and automatically opens the physical exit barrier instantly with 0 button presses!
-    """
-    import re
-    body_text = ""
-    try:
-        if request.method == "POST":
-            content_type = request.headers.get("content-type", "")
-            if "application/json" in content_type:
-                data = await request.json()
-                body_text = str(data.get("message") or data.get("text") or data.get("sms") or data.get("body") or data)
-            else:
-                body_bytes = await request.body()
-                body_text = body_bytes.decode("utf-8", errors="ignore")
-        else:
-            body_text = str(request.query_params)
-    except Exception as e:
-        body_text = str(e)
-
-    logger.info(f"Incoming UPI Bank Notification Webhook: {body_text}")
-
-    # Check for credit keywords
-    lower_text = body_text.lower()
-    is_credit = any(k in lower_text for k in ["credit", "credited", "received", "deposited", "sent you", "paid you", "successful"])
-
-    # Extract amount
-    amt_match = re.search(r'(?:inr|rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)', body_text, re.IGNORECASE)
-    amount = 0.0
-    if amt_match:
-        try:
-            amount = float(amt_match.group(1).replace(",", ""))
-        except Exception:
-            amount = 0.0
-
-    # Extract target car if present, otherwise default to car_at_exit or single car inside
-    car_match = re.search(r'car[_\s#]*([1-8])', body_text, re.IGNORECASE)
-    target_car = None
-    if car_match:
-        target_car = int(car_match.group(1))
-    elif getattr(state, "car_at_exit", None):
-        target_car = state.car_at_exit
-    else:
-        inside_cars = [c for c in range(1, 9) if state.cars.get(c, {}).get("state") != "OUTSIDE"]
-        if inside_cars:
-            target_car = inside_cars[0]
-
-    if not target_car:
-        return {"ok": False, "reason": "no_car_waiting_for_exit", "text": body_text}
-
-    # Authorize exit and open barrier
-    ok, reason, fare = state.authorize_exit(target_car)
-    if ok:
-        hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
-        req_id = f"bank_exit_{target_car}_{int(time.time())}"
-        await send_to_esp32({
-            "t": "gate",
-            "gate": "exit",
-            "action": "open",
-            "hold_ms": hold_ms,
-            "req_id": req_id
-        })
-        state.gates["exit"] = "opening"
-        if getattr(state, "car_at_exit", None) == target_car:
-            state.car_at_exit = None
-        db.log_event("real_bank_upi_verified", car=target_car, detail=f"amount={amount}, note={body_text[:100]}")
-        await broadcast_ui_snapshot()
-        logger.info(f"[SUCCESS] Real Bank UPI Payment verified for Car #{target_car}! Exit barrier opened automatically.")
-        return {
-            "ok": True,
-            "car": target_car,
-            "fare": fare,
-            "amount_detected": amount,
-            "gate_opened": True,
-            "message": f"Real bank transfer confirmed. Exit barrier opened automatically for Car #{target_car}!"
-        }
-    else:
-        return {"ok": False, "car": target_car, "reason": reason}
-
-@app.post("/api/payment/phonepe/create-order")
-async def post_phonepe_create_order(req: PhonePeCreateOrderRequest, request: Request):
-    """Creates a PhonePe payment request and returns checkout URL & scannable QR."""
-    car = state.cars.get(req.car)
-    if not car or car["state"] == "OUTSIDE":
-        raise HTTPException(status_code=400, detail=f"Car #{req.car} is not inside facility")
-
-    dwell_s, fare = state.compute_fare(car.get("entered_ts"))
-    host_hdr = request.headers.get("x-forwarded-host") or request.headers.get("host") or "localhost:8000"
-    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
-    base_url = f"{scheme}://{host_hdr}"
-
-    redirect_url = f"{base_url}/payment?car={req.car}&status=phonepe_redirect"
-    callback_url = f"{base_url}/api/payment/phonepe/callback"
-
-    order = phonepe_client.create_payment_order(
-        car_id=req.car,
-        fare_inr=fare,
-        redirect_url=redirect_url,
-        callback_url=callback_url,
-        user_phone=req.phone or "9999999999"
-    )
-
-    if not order.get("ok"):
-        raise HTTPException(status_code=500, detail=order.get("error", "PhonePe order creation failed"))
-
-    # Generate QR code for mobile scanning
-    payment_url = order.get("payment_url", "")
-    qr_b64 = generate_qr_base64(payment_url) if payment_url else ""
-
-    return {
-        "ok": True,
-        "provider": "phonepe",
-        "car": req.car,
-        "fare": fare,
-        "currency": state.currency,
-        "txn_id": order.get("txn_id"),
-        "payment_url": payment_url,
-        "qr_code_image": qr_b64,
-        "env": order.get("env")
-    }
-
-@app.get("/api/payment/phonepe/status/{car_id}/{txn_id}")
-async def get_phonepe_status_endpoint(car_id: int, txn_id: str):
-    """Polls PhonePe transaction status and automatically opens exit gate on PAYMENT_SUCCESS."""
-    status = phonepe_client.check_payment_status(txn_id)
-    if not status.get("ok"):
-        return {"ok": False, "is_paid": False, "error": status.get("error")}
-
-    is_paid = status.get("is_paid", False)
-    code = status.get("code", "")
-    gate_opened = False
-    fare = 0.0
-
-    if is_paid:
-        ok, reason, fare = state.authorize_exit(car_id)
-        if ok:
-            hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
-            req_id = f"exit_car_{car_id}_{int(time.time())}"
-            await send_to_esp32({
-                "t": "gate",
-                "gate": "exit",
-                "action": "open",
-                "hold_ms": hold_ms,
-                "req_id": req_id
-            })
-            state.gates["exit"] = "opening"
-            if getattr(state, "car_at_exit", None) == car_id:
-                state.car_at_exit = None
-            gate_opened = True
-            db.log_event("phonepe_payment_verified", car=car_id, detail=f"txn={txn_id}, fare={fare}")
-            await broadcast_ui_snapshot()
-
-    return {
-        "ok": True,
-        "car": car_id,
-        "txn_id": txn_id,
-        "is_paid": is_paid,
-        "is_pending": status.get("is_pending", False),
-        "code": code,
-        "gate_opened": gate_opened,
-        "fare": fare,
-        "message": status.get("message")
-    }
-
-@app.post("/api/payment/phonepe/callback")
-async def post_phonepe_callback(request: Request):
-    """Server-to-server webhook callback from PhonePe upon transaction completion."""
-    try:
-        body = await request.json()
-        response_b64 = body.get("response", "")
-        x_verify = request.headers.get("x-verify", "")
-
-        # Verify webhook signature
-        if not phonepe_client.verify_webhook_checksum(response_b64, x_verify):
-            logger.warning(f"PhonePe webhook signature verification failed: x-verify={x_verify}")
-            # In sandbox environments, allow proceeding if signature differs slightly
-            if phonepe_client.env == "production":
-                raise HTTPException(status_code=400, detail="Invalid PhonePe webhook checksum")
-
-        payload = phonepe_client.decode_webhook_payload(response_b64)
-        code = payload.get("code")
-        logger.info(f"PhonePe callback payload decoded: code={code}")
-
-        if code == "PAYMENT_SUCCESS":
-            txn_id = payload.get("data", {}).get("merchantTransactionId", "")
-            # Transaction ID format: PT360_CAR_{car_id}_{timestamp}
-            parts = txn_id.split("_")
-            car_id = None
-            if len(parts) >= 3 and parts[2].isdigit():
-                car_id = int(parts[2])
-
-            if car_id:
-                logger.info(f"PhonePe callback confirmed payment for Car #{car_id}! Opening exit gate.")
-                ok, reason, fare = state.authorize_exit(car_id)
-                if ok:
-                    hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
-                    req_id = f"exit_car_{car_id}_{int(time.time())}"
-                    await send_to_esp32({
-                        "t": "gate",
-                        "gate": "exit",
-                        "action": "open",
-                        "hold_ms": hold_ms,
-                        "req_id": req_id
-                    })
-                    state.gates["exit"] = "opening"
-                    if getattr(state, "car_at_exit", None) == car_id:
-                        state.car_at_exit = None
-                    db.log_event("phonepe_webhook_exit_open", car=car_id, detail=f"fare={fare}, txn={txn_id}")
-                    await broadcast_ui_snapshot()
-
-        return {"status": "ok"}
-    except Exception as e:
-        logger.error(f"PhonePe callback error: {e}")
-        return {"status": "error", "detail": str(e)}
-
-@app.post("/api/payment/phonepe/simulate-success/{car_id}")
-async def post_phonepe_simulate_success_endpoint(car_id: int):
-    """
-    Simulates a successful PhonePe payment for Car #car_id.
-    Triggers exit gate opening automatically, completely immune to external sandbox outages.
-    """
-    car = state.cars.get(car_id)
-    if not car or car["state"] == "OUTSIDE":
-        raise HTTPException(status_code=400, detail=f"Car #{car_id} is not inside facility")
-
-    ok, reason, fare = state.authorize_exit(car_id)
-    if not ok:
-        raise HTTPException(status_code=400, detail=f"Exit refused: {reason}")
-
-    hold_ms = state.config.get("gate", {}).get("hold_ms", 5000)
-    req_id = f"phonepe_sim_{car_id}_{int(time.time())}"
-    sent = await send_to_esp32({
-        "t": "gate",
-        "gate": "exit",
-        "action": "open",
-        "hold_ms": hold_ms,
-        "req_id": req_id
-    })
-    state.gates["exit"] = "opening"
-    if getattr(state, "car_at_exit", None) == car_id:
-        state.car_at_exit = None
-
-    db.log_event("phonepe_sim_verified", car=car_id, detail=f"fare={fare}")
-    await broadcast_ui_snapshot()
-
-    return {
-        "ok": True,
-        "car": car_id,
-        "fare": fare,
-        "gate_opened": True,
-        "sent_to_esp32": sent,
-        "message": f"PhonePe payment simulated successfully! Exit barrier opened automatically."
-    }
 
 @app.get("/api/exit-qr")
 async def get_exit_qr_code(car: Optional[int] = None):

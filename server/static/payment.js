@@ -1,7 +1,7 @@
 /**
  * ParkTrack 360 — Autonomous Payment & QR Settlement Script (payment.js)
  * Real-time dwell calculation, dynamic scannable UPI QR code generation,
- * Razorpay Checkout SDK integration, and automated exit barrier gate clearance.
+ * Official Razorpay Live Checkout SDK, and instant automated exit barrier clearance.
  */
 
 (function () {
@@ -12,6 +12,8 @@
   let activeCarsList = [];
   let currentOrderData = null;
   let dwellTimerInterval = null;
+  let autoClearanceWatcherInterval = null;
+  let hasReceiptShown = false;
 
   // DOM Elements
   const checkoutCarGrid = document.getElementById('checkoutCarGrid');
@@ -28,17 +30,10 @@
 
   const qrContainer = document.getElementById('qrContainer');
   const qrAmountText = document.getElementById('qrAmountText');
-  const upiIdDisplay = document.getElementById('upiIdDisplay');
   const qrSubtitleText = document.getElementById('qrSubtitleText');
   const qrOpenDirectlyBtn = document.getElementById('qrOpenDirectlyBtn');
-  const tabMobilePortalQR = document.getElementById('tabMobilePortalQR');
-  const tabPhonePeQR = document.getElementById('tabPhonePeQR');
-  const tabDirectUPIQR = document.getElementById('tabDirectUPIQR');
-  const btnPhonePePay = document.getElementById('btnPhonePePay');
   const btnRazorpayPay = document.getElementById('btnRazorpayPay');
-  const btnVerifyManual = document.getElementById('btnVerifyManual');
-
-  let currentQrMode = 'mobile_portal'; // 'mobile_portal', 'phonepe', or 'direct'
+  const btnRazorpayPayText = document.getElementById('btnRazorpayPayText');
 
   const checkoutView = document.getElementById('checkoutView');
   const receiptView = document.getElementById('receiptView');
@@ -96,7 +91,7 @@
     if (cars.length === 0) {
       checkoutCarGrid.innerHTML = `
         <div style="grid-column: 1 / -1; padding: 1.5rem; text-align: center; background: #0a0a0a; border: 1px dashed var(--border-medium); border-radius: 6px; color: var(--text-muted); font-size: 0.85rem;">
-          No vehicles currently inside facility. All cars 1-8 are outside.
+          No vehicles currently inside facility. All cars are outside.
         </div>
       `;
       return;
@@ -119,6 +114,7 @@
       btn.addEventListener('click', () => {
         const cId = parseInt(btn.getAttribute('data-car'), 10);
         selectedCar = cId;
+        hasReceiptShown = false;
         updateActiveButton();
         loadCarOrderData(cId);
       });
@@ -154,24 +150,23 @@
       statusPill.textContent = 'FACILITY EMPTY';
       statusPill.className = 'slot-status-pill vacant';
     }
-    if (statusText) statusText.textContent = 'Drive a car to the entry gate to initiate smart parking.';
+    if (statusText) statusText.textContent = 'Drive a vehicle to the entry gate to initiate autonomous smart parking.';
     if (billSlotLocation) billSlotLocation.textContent = 'None';
     if (billDwellTime) billDwellTime.textContent = '00:00:00';
     if (billTotalAmount) billTotalAmount.textContent = '₹0.00';
     if (qrAmountText) qrAmountText.textContent = '₹0.00';
     if (qrContainer) {
-      qrContainer.innerHTML = '<div style="font-size:0.8rem;color:#94a3b8;padding:1.5rem;text-align:center;">No payment pending</div>';
+      qrContainer.innerHTML = '<div style="font-size:0.8rem;color:#64748b;padding:1.5rem;text-align:center;">No payment pending</div>';
     }
     if (btnRazorpayPay) btnRazorpayPay.disabled = true;
-    if (btnVerifyManual) btnVerifyManual.disabled = true;
   }
 
-  // 2. Fetch Razorpay Order & Scannable QR Code for Selected Car
+  // 2. Fetch Razorpay Order & Scannable Real Dynamic UPI QR Code
   async function loadCarOrderData(carId) {
     if (!carId) return;
     try {
       if (qrContainer) {
-        qrContainer.innerHTML = '<div style="font-size:0.8rem;color:#64748b;padding:1.5rem;text-align:center;">Generating dynamic QR...</div>';
+        qrContainer.innerHTML = '<div style="font-size:0.8rem;color:#64748b;padding:1.5rem;text-align:center;">Generating dynamic payment QR...</div>';
       }
 
       const res = await fetch('/api/payment/create-order', {
@@ -188,9 +183,9 @@
       currentOrderData = await res.json();
       carData = currentOrderData;
       renderOrderView(currentOrderData);
+      startAutoClearanceWatcher(carId);
     } catch (e) {
       console.warn('Error loading order data:', e.message);
-      // Fallback vehicle status fetch
       fetchFallbackVehicle(carId);
     }
   }
@@ -231,114 +226,34 @@
     if (billTotalAmount) billTotalAmount.textContent = `₹${fare.toFixed(2)}`;
     if (qrAmountText) qrAmountText.textContent = `₹${fare.toFixed(2)}`;
 
-    updateQrDisplay();
-
-    // Start background watcher so scanning PhonePe QR with phone camera auto-opens gate!
-    if (order.phonepe_txn_id) {
-      startPhonePeBackgroundWatcher(order.car, order.phonepe_txn_id);
+    // Render Scannable Dynamic UPI QR Code
+    if (qrContainer && order.qr_code_image) {
+      qrContainer.innerHTML = `
+        <img src="${order.qr_code_image}" 
+             alt="Dynamic UPI QR Code" 
+             style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />
+      `;
     }
 
-    if (btnPhonePePay) {
-      btnPhonePePay.disabled = false;
-      btnPhonePePay.style.opacity = '1';
+    if (qrSubtitleText) {
+      qrSubtitleText.textContent = `Beneficiary: Haraswarup M Ramesh (${order.upi_id || 'haraswarup.m.ramesh@okhdfcbank'})`;
     }
+
+    if (qrOpenDirectlyBtn) {
+      qrOpenDirectlyBtn.href = order.upi_uri || '#';
+      qrOpenDirectlyBtn.textContent = '🔗 Click here to pay directly in UPI app on this device';
+      qrOpenDirectlyBtn.style.display = 'inline';
+    }
+
     if (btnRazorpayPay) {
       btnRazorpayPay.disabled = false;
       btnRazorpayPay.style.opacity = '1';
     }
-    if (btnVerifyManual) {
-      btnVerifyManual.disabled = false;
-      btnVerifyManual.style.opacity = '1';
+    if (btnRazorpayPayText) {
+      btnRazorpayPayText.textContent = `PAY ₹${fare.toFixed(2)} WITH RAZORPAY (UPI, CARDS, NETBANKING)`;
     }
 
     startDwellTicker(order.dwell_s || 0);
-  }
-
-  function updateQrDisplay() {
-    if (!currentOrderData || !qrContainer) return;
-    
-    // Reset all tab button styles
-    [tabMobilePortalQR, tabPhonePeQR, tabDirectUPIQR].forEach(tab => {
-      if (tab) {
-        tab.style.background = '#f8fafc';
-        tab.style.color = '#475569';
-        tab.style.borderColor = '#cbd5e1';
-      }
-    });
-
-    if (currentQrMode === 'mobile_portal' && currentOrderData.mobile_qr_image) {
-      qrContainer.innerHTML = `
-        <img src="${currentOrderData.mobile_qr_image}" 
-             alt="Mobile Checkout Portal QR" 
-             style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />
-      `;
-      if (qrSubtitleText) qrSubtitleText.textContent = 'Scan with Phone Camera to Open Mobile Checkout';
-      if (qrOpenDirectlyBtn) {
-        qrOpenDirectlyBtn.href = currentOrderData.mobile_checkout_url || '#';
-        qrOpenDirectlyBtn.textContent = '🔗 Click to Open Mobile Checkout on this Screen';
-        qrOpenDirectlyBtn.style.display = 'inline';
-      }
-      if (tabMobilePortalQR) {
-        tabMobilePortalQR.style.background = '#2563eb';
-        tabMobilePortalQR.style.color = '#fff';
-        tabMobilePortalQR.style.borderColor = '#2563eb';
-      }
-    } else if (currentQrMode === 'phonepe' && currentOrderData.phonepe_qr_image) {
-      qrContainer.innerHTML = `
-        <img src="${currentOrderData.phonepe_qr_image}" 
-             alt="PhonePe Simulator QR" 
-             style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />
-      `;
-      if (qrSubtitleText) qrSubtitleText.textContent = 'PhonePe Cloud Simulator (Pre-prod)';
-      if (qrOpenDirectlyBtn) {
-        qrOpenDirectlyBtn.href = currentOrderData.phonepe_url || '#';
-        qrOpenDirectlyBtn.textContent = '⚡ Click to Open PhonePe Simulator on this Screen';
-        qrOpenDirectlyBtn.style.display = 'inline';
-      }
-      if (tabPhonePeQR) {
-        tabPhonePeQR.style.background = '#5f259f';
-        tabPhonePeQR.style.color = '#fff';
-        tabPhonePeQR.style.borderColor = '#5f259f';
-      }
-    } else {
-      qrContainer.innerHTML = `
-        <img src="${currentOrderData.qr_code_image}" 
-             alt="Direct HDFC Bank UPI QR" 
-             style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />
-      `;
-      if (qrSubtitleText) qrSubtitleText.textContent = 'UPI: ' + (currentOrderData.upi_id || 'haraswarup.m.ramesh@okhdfcbank');
-      if (qrOpenDirectlyBtn) {
-        qrOpenDirectlyBtn.href = currentOrderData.upi_uri || '#';
-        qrOpenDirectlyBtn.textContent = '🏦 Click to Open in Default UPI App';
-        qrOpenDirectlyBtn.style.display = 'inline';
-      }
-      if (tabDirectUPIQR) {
-        tabDirectUPIQR.style.background = '#0f172a';
-        tabDirectUPIQR.style.color = '#fff';
-        tabDirectUPIQR.style.borderColor = '#0f172a';
-      }
-    }
-  }
-
-  let phonePeBackgroundWatcherTimer = null;
-  function startPhonePeBackgroundWatcher(carId, txnId) {
-    if (phonePeBackgroundWatcherTimer) clearInterval(phonePeBackgroundWatcherTimer);
-    if (!txnId) return;
-
-    phonePeBackgroundWatcherTimer = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/payment/phonepe/status/${carId}/${txnId}`);
-        const data = await res.json();
-        if (data.ok && data.is_paid) {
-          clearInterval(phonePeBackgroundWatcherTimer);
-          showReceipt({
-            receipt_id: `PHON-${carId}-${Date.now().toString().slice(-6)}`,
-            car: carId,
-            fare: data.fare || currentOrderData?.fare || 50.0
-          }, 'PhonePe Simulator (Phone Scan Verified)');
-        }
-      } catch (err) {}
-    }, 2000);
   }
 
   function renderVehicleFallback(v) {
@@ -367,110 +282,43 @@
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
-  // 2.5 PhonePe Payment Flow & Automatic Status Polling
-  let phonePePollTimer = null;
+  // 3. Hands-Free Clearance Watcher (When user scans QR on phone, gate auto-opens and receipt shows)
+  function startAutoClearanceWatcher(carId) {
+    if (autoClearanceWatcherInterval) clearInterval(autoClearanceWatcherInterval);
+    if (!carId) return;
 
-  async function openPhonePeCheckout() {
-    if (!selectedCar) {
-      alert('Please select an active vehicle inside the facility.');
-      return;
-    }
-
-    if (btnPhonePePay) {
-      btnPhonePePay.disabled = true;
-      btnPhonePePay.innerHTML = `<span>Connecting to PhonePe...</span>`;
-    }
-
-    try {
-      const res = await fetch('/api/payment/phonepe/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ car: selectedCar })
-      });
-
-      const data = await res.json();
-      if (!data.ok || !data.payment_url) {
-        throw new Error(data.detail || data.error || 'Failed to initiate PhonePe order');
+    autoClearanceWatcherInterval = setInterval(async () => {
+      if (hasReceiptShown) {
+        clearInterval(autoClearanceWatcherInterval);
+        return;
       }
-
-      console.log('PhonePe Order Initiated:', data);
-
-      // Open PhonePe checkout in a new window/tab
-      const payWindow = window.open(data.payment_url, '_blank');
-
-      if (btnPhonePePay) {
-        btnPhonePePay.innerHTML = `<span>Awaiting Payment • Auto-opening Gate...</span>`;
-      }
-
-      // Start automatic polling every 2 seconds
-      if (phonePePollTimer) clearInterval(phonePePollTimer);
-      const pollCar = selectedCar;
-      const txnId = data.txn_id;
-
-      phonePePollTimer = setInterval(async () => {
-        try {
-          const pollRes = await fetch(`/api/payment/phonepe/status/${pollCar}/${txnId}`);
-          const pollData = await pollRes.json();
-          console.log('PhonePe Poll Status:', pollData);
-
-          if (pollData.ok && pollData.is_paid) {
-            clearInterval(phonePePollTimer);
-            if (payWindow && !payWindow.closed) {
-              payWindow.close();
-            }
-            showReceipt({
-              receipt_id: `PHON-${pollCar}-${Date.now().toString().slice(-6)}`,
-              car: pollCar,
-              fare: pollData.fare || currentOrderData?.fare || 50.0
-            }, 'PhonePe UPI');
-          }
-        } catch (pollErr) {
-          console.warn('Poll error:', pollErr);
-        }
-      }, 2000);
-
-      // Stop polling after 4 minutes timeout
-      setTimeout(() => {
-        if (phonePePollTimer) {
-          clearInterval(phonePePollTimer);
-          if (btnPhonePePay) {
-            btnPhonePePay.disabled = false;
-            btnPhonePePay.innerHTML = `<span>Pay with PhonePe Simulator (Instant Open)</span>`;
-          }
-        }
-      }, 240000);
-
-    } catch (e) {
-      console.warn("PhonePe initiation failed, falling back to local simulation:", e);
       try {
-        const simRes = await fetch(`/api/payment/phonepe/simulate-success/${selectedCar}`, { method: 'POST' });
-        const simData = await simRes.json();
-        if (simData.ok) {
+        const res = await fetch(`/api/vehicle/${carId}`);
+        if (!res.ok) return;
+        const v = await res.json();
+        // If car transitioned to OUTSIDE, exit gate has opened and clearance is complete!
+        if (v && v.state === 'OUTSIDE') {
+          clearInterval(autoClearanceWatcherInterval);
           showReceipt({
-            receipt_id: `PHON-${selectedCar}-${Date.now().toString().slice(-6)}`,
-            car: selectedCar,
-            fare: simData.fare || currentOrderData?.fare || 50.0
-          }, 'PhonePe Simulator (Instant Open)');
-          return;
+            receipt_id: `LIVE-${carId}-${Date.now().toString().slice(-6)}`,
+            car: carId,
+            fare: currentOrderData?.fare || 50.0
+          }, 'Razorpay Live / UPI Instant Clearance');
         }
-      } catch (simErr) {}
-
-      alert(`Could not start PhonePe checkout: ${e.message}`);
-      if (btnPhonePePay) {
-        btnPhonePePay.disabled = false;
-        btnPhonePePay.innerHTML = `<span>Pay with PhonePe Simulator (Instant Open)</span>`;
+      } catch (err) {
+        // Silent poll error catch
       }
-    }
+    }, 2500);
   }
 
-  // 3. Razorpay Checkout Modal
+  // 4. Official Razorpay Live Checkout Modal
   function openRazorpayCheckout() {
     if (!currentOrderData || !selectedCar) {
       alert('Please select an active vehicle inside the facility.');
       return;
     }
 
-    const keyId = currentOrderData.razorpay_key_id || 'rzp_test_parktrack360';
+    const keyId = currentOrderData.razorpay_key_id || 'rzp_live_U23UQm1KlSJ7uS';
     const amountPaise = Math.round((currentOrderData.fare || 50.0) * 100);
 
     const options = {
@@ -478,29 +326,29 @@
       amount: amountPaise,
       currency: "INR",
       name: "ParkTrack 360",
-      description: `Parking Clearance for Car #${selectedCar}`,
+      description: `Parking Exit Clearance for Car #${selectedCar}`,
       order_id: currentOrderData.order_id && !currentOrderData.order_id.startsWith("order_sim") ? currentOrderData.order_id : undefined,
       handler: function (response) {
-        console.log("Razorpay payment response:", response);
+        console.log("Razorpay live payment response received:", response);
         verifyAndOpenGate({
           car: selectedCar,
           razorpay_order_id: response.razorpay_order_id || currentOrderData.order_id,
           razorpay_payment_id: response.razorpay_payment_id,
           razorpay_signature: response.razorpay_signature,
-          method: "Razorpay Checkout"
+          method: "Razorpay Live Checkout"
         });
       },
       prefill: {
         name: `Driver of Car #${selectedCar}`,
         contact: "9876543210",
-        email: `car${selectedCar}@parktrack360.local`
+        email: `driver${selectedCar}@parktrack360.local`
       },
       theme: {
         color: "#f59e0b"
       },
       modal: {
         ondismiss: function () {
-          console.log("Razorpay checkout modal dismissed by user.");
+          console.log("Razorpay checkout modal dismissed.");
         }
       }
     };
@@ -509,31 +357,21 @@
       if (typeof Razorpay !== 'undefined') {
         const rzp = new Razorpay(options);
         rzp.on('payment.failed', function (resp) {
-          alert(`Payment failed: ${resp.error.description}`);
+          alert(`Payment failed: ${resp.error ? resp.error.description : 'Transaction cancelled'}`);
         });
         rzp.open();
       } else {
-        // Fallback to direct verification
-        verifyAndOpenGate({
-          car: selectedCar,
-          order_id: currentOrderData.order_id,
-          method: "Simulated UPI QR"
-        });
+        alert("Razorpay Checkout SDK is still loading. Please scan the dynamic UPI QR code on screen.");
       }
     } catch (e) {
-      console.warn("Razorpay SDK initialization fallback:", e);
-      verifyAndOpenGate({
-        car: selectedCar,
-        order_id: currentOrderData.order_id,
-        method: "UPI QR Scan"
-      });
+      console.error("Razorpay SDK launch exception:", e);
+      alert(`Could not open Razorpay Checkout: ${e.message}`);
     }
   }
 
-  // 4. Verify Payment & Open Exit Barrier Gate
+  // 5. Verify Cryptographic Signature & Open Exit Gate Instantly
   async function verifyAndOpenGate(payload) {
     if (btnRazorpayPay) btnRazorpayPay.disabled = true;
-    if (btnVerifyManual) btnVerifyManual.disabled = true;
 
     try {
       const res = await fetch('/api/payment/verify', {
@@ -544,31 +382,33 @@
 
       const data = await res.json();
       if (data.ok) {
-        showReceipt(data, payload.method || 'Razorpay UPI');
+        showReceipt(data, payload.method || 'Razorpay Live');
       } else {
-        alert(`Payment verification failed: ${data.detail || data.reason || 'Could not verify'}`);
+        alert(`Payment verification failed: ${data.detail || data.reason || 'Invalid signature'}`);
         if (btnRazorpayPay) btnRazorpayPay.disabled = false;
-        if (btnVerifyManual) btnVerifyManual.disabled = false;
       }
     } catch (e) {
       console.error('Verification error:', e);
       alert('Error connecting to settlement server.');
       if (btnRazorpayPay) btnRazorpayPay.disabled = false;
-      if (btnVerifyManual) btnVerifyManual.disabled = false;
     }
   }
 
+  // 6. Luxury Receipt & Exit Clearance Presentation
   function showReceipt(data, method) {
+    hasReceiptShown = true;
     if (dwellTimerInterval) clearInterval(dwellTimerInterval);
+    if (autoClearanceWatcherInterval) clearInterval(autoClearanceWatcherInterval);
+
     if (checkoutView) checkoutView.style.display = 'none';
     if (receiptView) receiptView.style.display = 'block';
 
-    if (receiptIdText) receiptIdText.textContent = `Receipt #${data.receipt_id}`;
+    if (receiptIdText) receiptIdText.textContent = `Receipt #${data.receipt_id || `RCP-${data.car}-${Date.now().toString().slice(-6)}`}`;
     if (rcpCarNum) rcpCarNum.textContent = `Car #${data.car}`;
     if (rcpSlotId) rcpSlotId.textContent = carData?.slot ? `Bay ${carData.slot}` : 'Assigned Bay';
     if (rcpDuration) rcpDuration.textContent = formatDuration(carData?.dwell_s || 0);
-    if (rcpMethod) rcpMethod.textContent = method;
-    if (rcpAmountPaid) rcpAmountPaid.textContent = `₹${(data.fare || 50.0).toFixed(2)}`;
+    if (rcpMethod) rcpMethod.textContent = method || 'Razorpay Live';
+    if (rcpAmountPaid) rcpAmountPaid.textContent = `₹${(data.fare || currentOrderData?.fare || 50.0).toFixed(2)}`;
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -576,57 +416,17 @@
   // Event Listeners
   if (qrContainer) {
     qrContainer.addEventListener('click', () => {
-      let targetUrl = null;
-      if (currentQrMode === 'mobile_portal') targetUrl = currentOrderData?.mobile_checkout_url;
-      else if (currentQrMode === 'phonepe') targetUrl = currentOrderData?.phonepe_url;
-      else if (currentQrMode === 'direct') targetUrl = currentOrderData?.upi_uri;
-      if (targetUrl) window.open(targetUrl, '_blank');
+      if (currentOrderData?.upi_uri) {
+        window.open(currentOrderData.upi_uri, '_blank');
+      }
     });
-  }
-
-  if (tabMobilePortalQR) {
-    tabMobilePortalQR.addEventListener('click', () => {
-      currentQrMode = 'mobile_portal';
-      updateQrDisplay();
-    });
-  }
-
-  if (tabPhonePeQR) {
-    tabPhonePeQR.addEventListener('click', () => {
-      currentQrMode = 'phonepe';
-      updateQrDisplay();
-    });
-  }
-
-  if (tabDirectUPIQR) {
-    tabDirectUPIQR.addEventListener('click', () => {
-      currentQrMode = 'direct';
-      updateQrDisplay();
-    });
-  }
-
-  if (btnPhonePePay) {
-    btnPhonePePay.addEventListener('click', openPhonePeCheckout);
   }
 
   if (btnRazorpayPay) {
     btnRazorpayPay.addEventListener('click', openRazorpayCheckout);
   }
 
-  if (btnVerifyManual) {
-    btnVerifyManual.addEventListener('click', () => {
-      if (!selectedCar) {
-        alert('Please select an active vehicle.');
-        return;
-      }
-      verifyAndOpenGate({
-        car: selectedCar,
-        method: "Scanned UPI QR Code"
-      });
-    });
-  }
-
-  // WebSocket for Live State Synchronization
+  // WebSocket for Live State Synchronization & Instant Hands-Free Gate Open Notification
   function connectLiveSync() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/ui`;
@@ -639,16 +439,18 @@
             // Check if selectedCar just transitioned to OUTSIDE while exit gate opened
             if (selectedCar && snap.cars && snap.cars[selectedCar]) {
               const c = snap.cars[selectedCar];
-              if (c.state === 'OUTSIDE' && snap.gates && (snap.gates.exit === 'open' || snap.gates.exit === 'opening')) {
+              if (c.state === 'OUTSIDE' && !hasReceiptShown) {
                 showReceipt({
-                  receipt_id: `BANK-${selectedCar}-${Date.now().toString().slice(-6)}`,
+                  receipt_id: `LIVE-${selectedCar}-${Date.now().toString().slice(-6)}`,
                   car: selectedCar,
                   fare: currentOrderData?.fare || 50.0
-                }, 'Real Bank Account Transfer (Auto-Cleared)');
+                }, 'Razorpay Live (Webhook Clearance)');
                 return;
               }
             }
-            loadActiveCars();
+            if (!hasReceiptShown) {
+              loadActiveCars();
+            }
           }
         } catch (e) {}
       };
@@ -658,7 +460,7 @@
     } catch (e) {}
   }
 
-  // Initialization
+  // Initialize
   loadActiveCars();
   connectLiveSync();
 

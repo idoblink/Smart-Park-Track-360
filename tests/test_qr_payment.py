@@ -123,20 +123,30 @@ def test_real_upi_qr_contains_hdfc_vpa():
     assert data["upi_id"] == "haraswarup.m.ramesh@okhdfcbank"
 
 
-def test_upi_bank_webhook_auto_opens_exit_gate():
+def test_razorpay_webhook_auto_opens_exit_gate():
     # Admit Car 7 and park
     client.post("/api/entry", json={"car": 7})
     state._handle_slot_transition("G3", is_occupied=True)
     state.car_at_exit = 7
 
-    # Simulate bank SMS notification arriving at webhook
-    sms_text = "Dear Customer, INR 50.00 credited to a/c **1234 on 12-Nov-26 by UPI ref 431712345678. Info: UPI/Car 7 Parking. - HDFC Bank"
-    res = client.post("/api/payment/upi-webhook", json={"message": sms_text})
+    # Simulate official Razorpay webhook: payment.captured with car in notes
+    webhook_data = {
+        "event": "payment.captured",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": "pay_live_test_123",
+                    "amount": 5000,
+                    "currency": "INR",
+                    "status": "captured",
+                    "notes": {"car": "7"}
+                }
+            }
+        }
+    }
+    res = client.post("/api/payment/webhook", json=webhook_data)
     assert res.status_code == 200
-    data = res.json()
-    assert data["ok"] is True
-    assert data["gate_opened"] is True
-    assert data["car"] == 7
+    assert res.json()["status"] == "ok"
     assert state.gates["exit"] == "opening"
     assert state.cars[7]["state"] == "OUTSIDE"
 

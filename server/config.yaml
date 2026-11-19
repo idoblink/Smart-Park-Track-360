@@ -28,19 +28,11 @@ pricing:
 
 razorpay:
   enabled: true
-  key_id: "rzp_test_TzJBfZwN0WuEpn"
-  key_secret: "MqSzY0DpGycF7ltZeVHLrFmx"
+  key_id: "rzp_live_U23UQm1KlSJ7uS"
+  key_secret: "ADeJq0nnmf8T4NHB4PIcNxkI"
+  webhook_secret: "ParkTrack360SecretKey"
   merchant_name: "Haraswarup M Ramesh"
   upi_id: "haraswarup.m.ramesh@okhdfcbank"
-
-phonepe:
-  enabled: true
-  merchant_id: "PGTESTPAYUAT86"
-  salt_key: "96434309-7796-489d-8924-ab56988a6076"
-  salt_index: "1"
-  env: "sandbox"                  # "sandbox" or "production"
-  sandbox_url: "https://api-preprod.phonepe.com/apis/pg-sandbox"
-  production_url: "https://api.phonepe.com/apis/hermes"
 
 vision:
   model: server/digit_classifier.pkl
